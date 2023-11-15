@@ -2,3 +2,4 @@ credentials.txt
 config.ini
 insta_scraper.py
 instagramapi.py
+*.csv
