@@ -1,124 +1,338 @@
-import requests
-import streamlit as st
+import praw
+from datetime import datetime, timedelta
 import pandas as pd
+#preprocessing portion of code -- use re to detect regular expressions (in this case emoticons)
+import re
+import csv
+import chardet
+
+import logging
+from datetime import datetime
+import sys
+import schedule
+from datetime import time, timedelta,datetime
+
 import json
-# doing a db libraries
-# import sqlalchemy
-# from sqlalchemy import create_engine, text
-import os
+from ibm_watson import NaturalLanguageUnderstandingV1
+from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+from ibm_watson.natural_language_understanding_v1 import Features,CategoriesOptions,EmotionOptions,KeywordsOptions
+import numpy as np
+#this is where i was thinking we can deploy our app -- will allow us to get visualizations
+import streamlit as st
+#this is to visualize graph on streamlit
+import altair as alt
+
+
+# #this will avoid the csv error -- if this doesnt fix the issue idk what will
+csv.field_size_limit(131072)
+
+def filterData(df):
+    # preprocessing part of code
+    # code by: https://stackoverflow.com/questions/33404752/removing-emojis-from-a-string-in-python
+    emoji_pattern = re.compile("["
+                            u"\U0001F600-\U0001F64F"  # emoticons
+                            u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                            u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                            u"\U0001F700-\U0001F77F"  # alchemical symbols
+                            u"\U0001F780-\U0001F7FF"  # Geometric Shapes Extended
+                            u"\U0001F800-\U0001F8FF"  # Supplemental Arrows-C
+                            u"\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
+                            u"\U0001FA00-\U0001FA6F"  # Chess Symbols
+                            u"\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
+                            u"\U00002702-\U000027B0"  # Dingbats
+                            u"\U000024C2-\U0001F251" 
+                            "]+", flags=re.UNICODE)
+
+    columns_to_include = ['title', 'description', 'comments', 'posted_date']
+    new_df = df[columns_to_include]
+
+    # this is a more efficient way to do the below code in which will allow for any size -- wont result to csv field limit error
+    # Apply the function only to non-list columns
+    new_df = new_df.applymap(lambda x: re.sub(emoji_pattern, ' ', str(x)) if pd.notna(x) and not isinstance(x, list) else x)
+
+    # Apply the function to each element in the "comments" column
+    new_df['comments'] = new_df['comments'].apply(lambda comments: [re.sub(emoji_pattern, ' ', str(comment)) for comment in comments] if isinstance(comments, list) else comments)
+
+
+    return new_df
+
+# make monthly average function -- bar graph 
+def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp):
+    #will create our averages
+    sadness_average = sadness_total/counter
+    joy_average = joy_total/counter
+    fear_average = fear_total/counter
+    disgust_average = disgust_total/counter
+    anger_average = anger_total/counter
+
+    data = pd.DataFrame({
+    'Category':['Sadness', 'Joy', 'Fear', 'Disguist', 'Anger'],
+    'Value':[sadness_average, joy_average, fear_average, disgust_average, anger_average]
+
+    })
+
+    # Create Altair bar chart
+    chart = alt.Chart(data).mark_bar().encode(
+        x=alt.X('Category', title='Sentiment'), 
+        y=alt.Y('Value', title='Value of Sentiment (0 to 1)'),
+        tooltip=['Category', 'Value']
+    ).properties(
+        #TO DO: create the title to a better formatted date, for ex. Dec 2023 -- we would need to parse timestamp 12-03..
+        title=timestamp,
+        width=700,
+        height=400
+    )
+
+    # Display the chart using st.altair_chart
+    st.altair_chart(chart, use_container_width=True)
+
+
+    #TO DO: visualization idea: would add these averages to an exitsting line graph thta has sadnesses from other months (show trend)
+
+
+#function that will read every 5000 columns
+# Function to filter data
+def sliceData(df, selected_columns, chunk_size, timestamp, credential):
+    chunks_list = []  # List to accumulate chunks
+    
+    # Iterate over selected columns
+    for col in selected_columns:
+        # Check if the column has any non-empty strings
+        if df[col].str.len().sum() > 0:
+            # Loop until there are no more characters
+            while any(df[col].str.len() > 0):
+                # Get the first chunk of characters in each string
+                df['current_character'] = df[col].str.slice(0, chunk_size)
+
+                # to not append a cell that either has "" string or NaN cell value
+                non_empty_chunk = df['current_character'][(df['current_character'] != '') & df['current_character'].notna()].tolist()
+                if non_empty_chunk:
+                    chunks_list.append(non_empty_chunk)
+
+                # Remove the first chunk of characters from each string
+                df[col] = df[col].str.slice(chunk_size)
+                
+    counter = 1
+    sadness_total = 0
+    joy_total = 0
+    fear_total = 0
+    disgust_total = 0
+    anger_total = 0
+
+    # Display or process the accumulated chunks
+    for idx, chunk in enumerate(chunks_list):
+        st.write(f"Chunk {idx + 1}:", chunk)
+        print(f"chunk {idx}:")
+
+        string = ' '.join(chunk)
+        print(string)
+        json_string = json.dumps(string)
+
+        #find api key and enter it inside the curly braces
+        authenticator = IAMAuthenticator(credential)
+        natural_language_understanding = NaturalLanguageUnderstandingV1(
+            version='2022-04-07',
+            authenticator=authenticator
+        )
+
+        response = natural_language_understanding.analyze(
+            # url='www.ibm.com',
+            text = json_string,
+            features=Features(keywords=KeywordsOptions(sentiment=True,emotion=True,limit=5))).get_result()
+
+        json_extension = ".json"
+        json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/sentiment_{timestamp}_{counter}{json_extension}"
+
+        # Calculate average emotion values for each keyword PER JSON
+        sadness = sum(keyword.get("emotion", {}).get("sadness", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+        joy = sum(keyword.get("emotion", {}).get("joy", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+        fear = sum(keyword.get("emotion", {}).get("fear", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+        disgust = sum(keyword.get("emotion", {}).get("disgust", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+        anger = sum(keyword.get("emotion", {}).get("anger", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+
+        #add it to a total sum FOR ALL JSONS PER MONTH
+        sadness_total += sadness
+        joy_total += joy
+        fear_total += fear
+        disgust_total += disgust
+        anger_total += anger
+
+
+
+        # Write to JSON file
+        with open(json_file_path, 'w') as json_file:
+            json.dump(response, json_file, indent=4)
+
+
+
+
+        print(f"Data has been written to {json_file_path}")
+
+        #starting counter for the amount of sentiment response  taken
+        counter += 1
+
+    monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp)
+
+
+
+# print(0)
+credentials = []
+
+#create a scheduler
+
+
+#schedule every month to do this task. Note 1 month = 4 weeks
+#   schedule.every(4).weeks.do(job)
+#this will create an endless loop for our function -- it will be running program constantly
+#while True:
+#   schedule.run_pending()
+#   time.sleep(1)
+
+#add a our job function for the code below
+# def job():
+#     print("Making monthly request ot the reddit api")
+with open('credentials.txt', 'r') as f:
+    for content in f:
+        #add to array of content
+        credentials.append(content.strip())
+
+
+#information with account and api information
 
 #these are my ids for the reddit api
-CLIENT_ID = '***REMOVED***'
-SECRET_KEY = '***REMOVED***'
+CLIENT_ID = credentials[0]
+SECRET_KEY = credentials[1]
 
-#print(sqlalchemy.__version__)
-print(os.getcwd())
-
-with open('credentials.txt', 'r') as f:
-    pw = f.read()
-
+# #print(sqlalchemy.__version__)
 
 #db credentials
-usr = 'root'
-pwd = pw
-host = '127.0.0.1'
-port = 3306
-dbName = 'redditdb'
-tableName = 'reddit_credentials'
+# usr = 'root'
+# pwd = credentials[2] #password to enter database -- wont need until later
+# host = '127.0.0.1'
+# port = 3306
+# dbName = 'redditdb'
+# tableName = 'reddit_credentials'
+
+#to get comments
+reddit = praw.Reddit(
+    client_id = credentials[0],
+    client_secret=credentials[1],
+    password=credentials[2],
+    user_agent=credentials[4],
+    username=credentials[3]
+)
+
+
+# Define the terms to search for and the subreddit
+search_terms = ['gpt', 'ai', 'generative ai', 'chatgpt']
+subreddit = 'all'  # Or specify a subreddit
+print(1)
+
+# Calculate date range for "yesterday" (or adjust to the specific day you're fetching for)
+yesterday = datetime.utcnow() - timedelta(days=60) #this will extract posts from the last 60 days 
+date_limit = yesterday.strftime('%Y%m%d')
+timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+sixty_days_ago = datetime.utcnow() - timedelta(days=60)
+# print(date_limit)
+
+# thru this new change in an hour
+
+print(2)
+# Fetch posts
+posts_data = []
+for term in search_terms:
+    #instead of month -- try per week -- or make scheduler per week (work on tomorrow)
+    for submission in reddit.subreddit(subreddit).search(term, time_filter='month', limit=20):
+        try:
+            submission.comments.replace_more(limit=20)
+            
+            submission_date = datetime.utcfromtimestamp(submission.created_utc)
+
+            if submission_date > sixty_days_ago:
+                posts_data.append({
+                    'title': submission.title,
+                    'description': submission.selftext,
+                    'comments': [comment.body for comment in submission.comments.list()],
+                    'subreddit': submission.subreddit.display_name,
+                    'karma': submission.score,
+                    'url': submission.url,
+                    'posted_date': datetime.utcfromtimestamp(submission.created_utc)
+                })
+            
+            # Print post_data for debugging
+            print(posts_data)
+            
+        except praw.exceptions.APIException as e:
+            if e.response.status_code == 429:
+                # Sleep for a short duration and then retry
+                time.sleep(5)
+            else:
+                # Handle other API exceptions
+                print(f"API Exception: {e}")
+
+
+# Convert to DataFrame
+df = pd.DataFrame(posts_data)
+
+#ensure code is not in random order
+
+# # Sort the DataFrame by 'posted_date'
+# df.sort_values(by='posted_date', inplace=True)
+
+# # Reset the index after sorting
+# df.reset_index(drop=True, inplace=True)
+
+csv_file_path = 'reddit_posts_'+timestamp+'.csv'
+csv_file_path1 = '/home/rocio/Documents/Research/Raw-Reddit-Data/'+csv_file_path
+#csv to write to
+print(csv_file_path1)
+df.to_csv(csv_file_path1, index=False)
+
+#think this might fix issue with filtering dataframe -- make it a specfic encoding 
+df = pd.read_csv(csv_file_path1, encoding='utf-8')
+
+csv_file_path2 = '/home/rocio/Documents/Research/Reddit-Data/'+csv_file_path
+
+new_df = filterData(df)
+
+#df.to_csv(csv_file_path1, index=False)
+new_df.to_csv(csv_file_path2, index=False)
+
+
+# date = date_limit
+# dateTimeFrame = datetime.utcnow()
+
+# dt_str = str(dateTimeFrame)
+
+
+#TO DO- convert this into a function (call this filteredData)
+
+# Save DataFrame to a CSV file or database
+
+# read the csv
+# df = pd.read_csv('reddit_results.csv', encoding='utf-8')
 
 
 
+#get content in title, description and comments from our filtered df 
+selected_columns = ["title", "description", "comments"]
+subset_df = new_df.loc[:, selected_columns]
 
-auth = requests.auth.HTTPBasicAuth(CLIENT_ID, SECRET_KEY)
+chunk_size = 5000
 
- #specifying a dictionary in which we are going to go in with a password
-data = {
-    'grant_type' : 'password',
-    'username' : 'flamingolover4',
-    'password' : pw
-}
-
-#identify the version of yoyr api
-headers = {'User-Agent' : 'MyAPI/0.0.1'}
-
-#innclude all our daa for the request
-res = requests.post('https://www.reddit.com/api/v1/access_token', 
-                     auth=auth, data=data, headers=headers)
-
-TOKEN = res.json()['access_token']
-print(TOKEN)
-
-#this access token is something we need to add to ur header
-# at this point we can access any token we would like
-headers['Authorization'] = f'bearer {TOKEN}'
-
-print(headers)
-
-#this is just ot see if the api is working, will get all the information in your account
-print(requests.get("https://oauth.reddit.com/api/v1/me", headers=headers).json())
-
-#allows to get max requests
-res = requests.get("https://oauth.reddit.com/r/ChatGPT", headers=headers, params={'limit':'1000'})
-#, params={'limit':'100', 'after' : 't3_17evdt8'}
-#get data after this post
-
-#prints the results in json format
-print(res.json())
-
-#create a dataframe that filters certain information via specfied columns
-df = pd.DataFrame(columns=['subreddit', 'title', 'selftext', 'upvote_ratio', 'ups', 'downs', 'score'])
-
-#goes through each post per results in json format
-for post in res.json()['data']['children']:
-
-    print(post['data']) #just extracts the data in the post
-
-    #creates a dataframe with these columns of data
-    df = pd.concat([df, pd.DataFrame.from_records([{ 'subreddit' : post['data']['subreddit'], 'title' : post['data']['title'], 'selftext' : post['data']['selftext'], 'upvote_ratio' : post['data']['upvote_ratio'], 'ups' : post['data']['upvote_ratio'], 'downs' : post['data']['downs'], 'score' : post['data']['score']}])], ignore_index=True)
-
-#see it visually on a dataframe on streamlit app
-st.write(df)
-
-#save content from df to csv
-df.to_csv("reddit_result.csv", index=False)
-
-print(post['kind'] + '_' + post['data']['id'])
-
-#To do: get all reddit post about chat gpt and short data into a separate json file
-#later: organize data into a database or dataframe and make a call to the ibm api ot get infomation about sentiment analysis, when we can make a call to power bi or any other tool to make a graph for us
-# before power bi: make a graph on streamlit to see results
-
-#goal: find a way to access comments in reddit
+#this will slice data every 5000 characters and then make request to sentiment api
+sliceData(subset_df, selected_columns, chunk_size, timestamp, credentials[5])
 
 
-#sql stuff -- do later for make a dataset
-# #create an engine object
-# engine = create_engine(
-#     f"mysql+mysqldb://{usr}:{pwd}@{host}:{port}/{dbName}",
-#     echo=True,
-#     future=True)
+# Setup logging
+date=datetime.utcnow()
+name = f"/home/rocio/Documents/Research/Reddit-Data/reddit-data_{timestamp}.log"
+logging.basicConfig(filename=name, level=logging.INFO)
 
-# #create table
-# df.to_sql(name=tableName, con=engine, if_exists='replace')
+def main():
+    # Your script logic here
+    logging.info(f"Script run at {datetime.now()}")
 
-# with engine.connect() as conn:
-#     result = conn.execute(text("DESCRIBE tableName;"))
-#     for row in result:
-#         print(row)
+if __name__ == "__main__":
+    main()
     
-# with engine.connect() as conn:
-#     result = conn.execute(text("SELECT * FROM tableName"))
-#     for row in result:
-#         print(f"""
-#             index: {row.index}
-#             subreddit: {row.subreddit}
-#             title: {row.title}
-#             selftext: {row.selftext}
-#             upvote_ratio: {row.count}
-#             ups: {row.count}
-#             downs: {row.}
-#             score: {row.}
-
-#               """)
-
-
