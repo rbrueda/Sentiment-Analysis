@@ -13,7 +13,7 @@ reddit = praw.Reddit(
 ```
 
 
-- Iterated through each reddit submission to search through key terms to see if at least one of the search terms, <span style="color: #d67fbb">gpt, ai, generative ai, chatgpt</span>, are found 
+- Iterated through each reddit submission to search through key terms to see if at least one of the search terms, **gpt, ai, generative ai, chatgpt**, are found 
 ``` python
 for submission in reddit.subreddit(subreddit).search(query_string, time_filter='day', limit=20):
 
@@ -21,14 +21,14 @@ for submission in reddit.subreddit(subreddit).search(query_string, time_filter='
 
 ## Nov 2023 - Dec 2023
 - Saved each request to external csv titled with timestamp when csv was created. Each csv contains real-time data
-	- Each csv files contains columns:<span style="color: #d67fbb"> title, description, comments, subreddit, karma, url, posted_date</span>
+	- Each csv files contains columns: **title, description, comments, subreddit, karma, url, posted_date**
 - Added function to filter through csv to check for emoji-patterns and substribute with blank space
 - Used regex pattern from <href>https://stackoverflow.com/questions/33404752/removing-emojis-from-a-string-in-python </href>
 
 ## Dec 2023 - Jan 2024
 - Parsed dataset by splicing every 5000 characters (based on requirements of IBM NLP api) and converting data to a string. 
 - Passed parsed data to IBM NLP api and saved sentiment analysis results to external json file
-	- Json attributes for sentiment results are: <span style="color: #d67fbb">sadness, joy, fear, disgust, anger</span>
+	- Json attributes for sentiment results are: **sadness, joy, fear, disgust, anger**
 - Once all data has been called to IBM, I averaged all the results to get **daily** sentiment analysis results
 - Visualized data using altair library and deployed platform in Streamlit framework
 - Started working on daily scheduler based design and brainstormed ways to visualize the data over a long period of time (annual-based graph)
