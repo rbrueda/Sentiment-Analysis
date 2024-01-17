@@ -166,7 +166,6 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
 
 
 
-        #print(f"Data has been written to {json_file_path}")
 
         #starting counter for the amount of sentiment response  taken
         counter += 1
