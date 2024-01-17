@@ -71,7 +71,7 @@ def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_tota
 
     })
 
-    # Create Altair bar chart
+    # Create Altair bar chart - this is currently getting daily sentiment analysis (try to get monnnthly )
     chart = alt.Chart(data).mark_bar().encode(
         x=alt.X('Category', title='Sentiment'), 
         y=alt.Y('Value', title='Value of Sentiment (0 to 1)'),
@@ -90,7 +90,7 @@ def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_tota
     #TO DO: visualization idea: would add these averages to an exitsting line graph thta has sadnesses from other months (show trend)
 
 
-#function that will read every 5000 columns
+#function that will read every 5000 characters
 # Function to filter data
 def sliceData(df, selected_columns, chunk_size, timestamp, credential):
     chunks_list = []  # List to accumulate chunks
@@ -122,10 +122,10 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
     # Display or process the accumulated chunks
     for idx, chunk in enumerate(chunks_list):
         st.write(f"Chunk {idx + 1}:", chunk)
-        print(f"chunk {idx}:")
+        #print(f"chunk {idx}:")
 
         string = ' '.join(chunk)
-        print(string)
+        #print(string)
         json_string = json.dumps(string)
 
         #find api key and enter it inside the curly braces
@@ -166,7 +166,7 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
 
 
 
-        print(f"Data has been written to {json_file_path}")
+        #print(f"Data has been written to {json_file_path}")
 
         #starting counter for the amount of sentiment response  taken
         counter += 1
@@ -232,23 +232,35 @@ print(1)
 yesterday = datetime.utcnow() - timedelta(days=60) #this will extract posts from the last 60 days 
 date_limit = yesterday.strftime('%Y%m%d')
 timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-sixty_days_ago = datetime.utcnow() - timedelta(days=60)
+timeframe = datetime.utcnow() - timedelta(days=1)
 # print(date_limit)
 
 # thru this new change in an hour
 
 print(2)
 # Fetch posts
-posts_data = []
-for term in search_terms:
-    #instead of month -- try per week -- or make scheduler per week (work on tomorrow)
-    for submission in reddit.subreddit(subreddit).search(term, time_filter='month', limit=20):
-        try:
-            submission.comments.replace_more(limit=20)
-            
-            submission_date = datetime.utcfromtimestamp(submission.created_utc)
 
-            if submission_date > sixty_days_ago:
+#should I scrape data per day?
+posts_data = []
+# Create a query string with logical OR between search terms
+query_string = " OR ".join(search_terms)
+
+#place in a set for time complexity - will search in O(1)
+unique_submission_ids = set()
+#print(f"print test: {reddit.subreddit(subreddit)}")
+#for term in search_terms: this wouldn't be necessary
+    #instead of month -- try per week -- or make scheduler per week (work on tomorrow) - search all terms at once
+for submission in reddit.subreddit(subreddit).search(query_string, time_filter='day', limit=20):
+    #print(f"submission: {submission}")
+    try:
+        submission.comments.replace_more(limit=20)
+        
+        submission_date = datetime.utcfromtimestamp(submission.created_utc)
+        
+        if submission_date > timeframe: #check if data follows in timeframe - probably dont need since search function already does this
+
+            # Check if the submission ID is not already in the set to avoid duplicates
+            if submission.id not in unique_submission_ids:
                 posts_data.append({
                     'title': submission.title,
                     'description': submission.selftext,
@@ -258,17 +270,20 @@ for term in search_terms:
                     'url': submission.url,
                     'posted_date': datetime.utcfromtimestamp(submission.created_utc)
                 })
-            
-            # Print post_data for debugging
-            print(posts_data)
-            
-        except praw.exceptions.APIException as e:
-            if e.response.status_code == 429:
-                # Sleep for a short duration and then retry
-                time.sleep(5)
-            else:
-                # Handle other API exceptions
-                print(f"API Exception: {e}")
+
+                # Add the submission ID to the set to track uniqueness
+                unique_submission_ids.add(submission.id)
+        
+        # Print post_data for debugging
+        #print(posts_data)
+        
+    except praw.exceptions.APIException as e:
+        if e.response.status_code == 429:
+            # Sleep for a short duration and then retry
+            time.sleep(5)
+        else:
+            # Handle other API exceptions
+            print(f"API Exception: {e}")
 
 
 # Convert to DataFrame
@@ -285,7 +300,7 @@ df = pd.DataFrame(posts_data)
 csv_file_path = 'reddit_posts_'+timestamp+'.csv'
 csv_file_path1 = '/home/rocio/Documents/Research/Raw-Reddit-Data/'+csv_file_path
 #csv to write to
-print(csv_file_path1)
+#print(csv_file_path1)
 df.to_csv(csv_file_path1, index=False)
 
 #think this might fix issue with filtering dataframe -- make it a specfic encoding 
