@@ -13,21 +13,25 @@ reddit = praw.Reddit(
 ```
 
 
-- Iterated through each reddit submission to search through key terms to see if at least one of the search terms, **gpt, ai, generative ai, chatgpt**, are found 
+- Iterated through each reddit submission to search through key terms to see if at least one of the search terms, **gpt, ai, generative ai, chatgpt**, are found
+- For each post, the data is added to a list of objects called **"posts_data"**
 ``` python
 for submission in reddit.subreddit(subreddit).search(query_string, time_filter='day', limit=20):
 
 ```
 
 ## Nov 2023 - Dec 2023
-- Saved each request to external csv titled with timestamp when csv was created. Each csv contains real-time data
+- Added the list of posts from the Reddit API request to a Pandas dataframe where each dataframe will contain the **real-time** data
+- The dataframe is then converted to an external csv titled with current timestamp
 	- Each csv files contains columns: **title, description, comments, subreddit, karma, url, posted_date**
-- Added function to filter through csv to check for emoji-patterns and substribute with blank space
-- Used regex pattern from <href>https://stackoverflow.com/questions/33404752/removing-emojis-from-a-string-in-python </href>
+ 	- The csv files are added to "Raw-Reddit-Data" directory, where the **raw data** is retrieved
+- Added function to filter through dataframe to check for emoji-patterns and substribute with blank space, this will return a **new filtered dataframe**
+	- For the implementation, used regex pattern from <href>https://stackoverflow.com/questions/33404752/removing-emojis-from-a-string-in-python </href>
+- Once data is filtered, the new dataframe is converted to a **filtered** csv file which is added to "Sentiment-Data" directory
 
 ## Dec 2023 - Jan 2024
-- Parsed dataset by splicing every 5000 characters (based on requirements of IBM NLP api) and converting data to a string. 
-- Passed parsed data to IBM NLP api and saved sentiment analysis results to external json file
+- Parsed dataset by splicing every 10000 characters (based on requirements of IBM NLP api) and converting data to a **string**. 
+- Passed parsed data to IBM NLP api and saved sentiment analysis results to external json file, saved in "Sentiment-Data" directory
 	- Json attributes for sentiment results are: **sadness, joy, fear, disgust, anger**
 - Once all data has been called to IBM, I averaged all the results to get **daily** sentiment analysis results
 - Visualized data using altair library and deployed platform in Streamlit framework
@@ -52,3 +56,4 @@ if submission.id not in unique_submission_ids:
                 unique_submission_ids.add(submission.id)
 
 ```
+- currently working on finding a way to parse through characters in sliceData() function without slicing between words (in progress)
