@@ -21,6 +21,7 @@ import numpy as np
 import streamlit as st
 #this is to visualize graph on streamlit
 import altair as alt
+import regex
 
 
 # #this will avoid the csv error -- if this doesnt fix the issue idk what will
@@ -48,10 +49,12 @@ def filterData(df):
 
     # this is a more efficient way to do the below code in which will allow for any size -- wont result to csv field limit error
     # Apply the function only to non-list columns
-    new_df = new_df.applymap(lambda x: re.sub(emoji_pattern, ' ', str(x)) if pd.notna(x) and not isinstance(x, list) else x)
+    # Use DataFrame.apply with the map method
+    new_df = new_df.apply(lambda x: x.map(lambda elem: re.sub(emoji_pattern, ' ', str(elem)) if pd.notna(elem) and not isinstance(elem, list) else elem))
 
-    # Apply the function to each element in the "comments" column
+# Apply the function to each element in the "comments" column
     new_df['comments'] = new_df['comments'].apply(lambda comments: [re.sub(emoji_pattern, ' ', str(comment)) for comment in comments] if isinstance(comments, list) else comments)
+
 
 
     return new_df
@@ -95,22 +98,46 @@ def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_tota
 def sliceData(df, selected_columns, chunk_size, timestamp, credential):
     chunks_list = []  # List to accumulate chunks
     
-    # Iterate over selected columns
+        # Iterate over selected columns
     for col in selected_columns:
+    
         # Check if the column has any non-empty strings
         if df[col].str.len().sum() > 0:
+
             # Loop until there are no more characters
             while any(df[col].str.len() > 0):
+                
                 # Get the first chunk of characters in each string
                 df['current_character'] = df[col].str.slice(0, chunk_size)
 
                 # to not append a cell that either has "" string or NaN cell value
                 non_empty_chunk = df['current_character'][(df['current_character'] != '') & df['current_character'].notna()].tolist()
+                
+                #Note: seems like when passing comments in the api, there were words that were cropped off, hence I check all indexes in each chunk -- there still might be an issue with this tho
+
+                # Check if it's the last chunk, and if not, truncate to the last existing space
+                for i, chunk in enumerate(non_empty_chunk):
+                    #checks if it is last index in the list
+                    #if i == len(non_empty_chunk) - 1 and not chunk.endswith(" "):
+                    if not chunk.endswith(" "):
+                        #finds the last occurence of " "
+                        last_space_index = chunk.rfind(" ")
+                        #if space is found, concatenate the string from that occurence
+                        if last_space_index != -1:
+                            non_empty_chunk[i] = chunk[:last_space_index]
+                            if (i+1 < len(non_empty_chunk)):
+                                #bring truncated part ot next index so we dont lose the word 
+                                non_empty_chunk[i+1] = str(chunk[last_space_index:]) + " " + non_empty_chunk[i+1]
+
+                #checks if the chunk has content
                 if non_empty_chunk:
                     chunks_list.append(non_empty_chunk)
 
-                # Remove the first chunk of characters from each string
-                df[col] = df[col].str.slice(chunk_size)
+                # find the updated length of non_empty_chunk
+                non_empty_chunk_size = sum(len(chunk) for chunk in non_empty_chunk)
+                #remove everything from non_empty_chunk from df
+                df[col] = df[col].str.slice(non_empty_chunk_size)
+    
                 
     counter = 1
     sadness_total = 0
@@ -126,7 +153,9 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
 
         string = ' '.join(chunk)
         #print(string)
+        #converts json to string
         json_string = json.dumps(string)
+        print(f"json_string: " + json_string)
 
         #find api key and enter it inside the curly braces
         authenticator = IAMAuthenticator(credential)
@@ -142,6 +171,8 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
 
         json_extension = ".json"
         json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/sentiment_{timestamp}_{counter}{json_extension}"
+
+        print(json_file_path)
 
         # Calculate average emotion values for each keyword PER JSON
         sadness = sum(keyword.get("emotion", {}).get("sadness", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
@@ -162,8 +193,6 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
         # Write to JSON file
         with open(json_file_path, 'w') as json_file:
             json.dump(response, json_file, indent=4)
-
-
 
 
 
@@ -274,7 +303,7 @@ for submission in reddit.subreddit(subreddit).search(query_string, time_filter='
                 unique_submission_ids.add(submission.id)
         
         # Print post_data for debugging
-        #print(posts_data)
+        print(posts_data)
         
     except praw.exceptions.APIException as e:
         if e.response.status_code == 429:
@@ -311,7 +340,7 @@ new_df = filterData(df)
 
 #df.to_csv(csv_file_path1, index=False)
 new_df.to_csv(csv_file_path2, index=False)
-
+print("saved filter data to csv")
 
 # date = date_limit
 # dateTimeFrame = datetime.utcnow()
@@ -332,7 +361,7 @@ new_df.to_csv(csv_file_path2, index=False)
 selected_columns = ["title", "description", "comments"]
 subset_df = new_df.loc[:, selected_columns]
 
-chunk_size = 5000
+chunk_size = 10000 #maximum amount of characters allowed per request ot the ibm api
 
 #this will slice data every 5000 characters and then make request to sentiment api
 sliceData(subset_df, selected_columns, chunk_size, timestamp, credentials[5])
