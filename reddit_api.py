@@ -27,9 +27,18 @@ import regex
 # #this will avoid the csv error -- if this doesnt fix the issue idk what will
 csv.field_size_limit(131072)
 
+# Function to remove hyperlinks
+def remove_hyperlinks(text):
+    return re.sub(r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*", '', text)
+
+# Function to remove escape characters
+def remove_escape_characters(text):
+    return text.encode('utf-8').decode('unicode_escape')
+
 def filterData(df):
     # preprocessing part of code
-    # code by: https://stackoverflow.com/questions/33404752/removing-emojis-from-a-string-in-python
+    # emoji pattern code by: https://stackoverflow.com/questions/33404752/removing-emojis-from-a-string-in-python
+    #http links pattern code by: https://stackoverflow.com/questions/6718633/python-regular-expression-again-match-url 
     emoji_pattern = re.compile("["
                             u"\U0001F600-\U0001F64F"  # emoticons
                             u"\U0001F300-\U0001F5FF"  # symbols & pictographs
@@ -50,9 +59,19 @@ def filterData(df):
     # this is a more efficient way to do the below code in which will allow for any size -- wont result to csv field limit error
     # Apply the function only to non-list columns
     # Use DataFrame.apply with the map method
+    #for unicode pattern
     new_df = new_df.apply(lambda x: x.map(lambda elem: re.sub(emoji_pattern, ' ', str(elem)) if pd.notna(elem) and not isinstance(elem, list) else elem))
 
-# Apply the function to each element in the "comments" column
+    # cleans the dataframe from escape characters
+    new_df = new_df.replace(to_replace=r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*", value='', regex=True)
+    # cleans the dataframe from hyperlinks
+    new_df = new_df.replace(to_replace=r'\\[^\s]', value='', regex=True)
+    # cleans the dataframe from asterisks
+    new_df = new_df.replace(to_replace=r'\*+', value=' ', regex=True)
+    #additonal characters that where not cleaned
+    new_df = new_df.replace(to_replace=r'([*/<>#]|/|&#x200B;)+|\s{2,}', value=' ', regex=True)
+
+    # Apply the function to each element in the "comments" column
     new_df['comments'] = new_df['comments'].apply(lambda comments: [re.sub(emoji_pattern, ' ', str(comment)) for comment in comments] if isinstance(comments, list) else comments)
 
 
@@ -61,6 +80,9 @@ def filterData(df):
 
 # make monthly average function -- bar graph 
 def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp):
+    #find an optimal way to search through a list of folders in a directory and find all folders that are made in the past 7 days -- hence will keep track of data in the past 7 days
+    #save it in a folder -- monthly sentiment results
+
     #will create our averages
     sadness_average = sadness_total/counter
     joy_average = joy_total/counter
@@ -74,11 +96,17 @@ def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_tota
 
     })
 
+    # Specify the color for each category
+    color_scale = alt.Scale(domain=['Sadness', 'Joy', 'Fear', 'Disguist', 'Anger'],
+                            range=['blue', 'yellow', 'purple', 'green', 'red'])
+
+
     # Create Altair bar chart - this is currently getting daily sentiment analysis (try to get monnnthly )
     chart = alt.Chart(data).mark_bar().encode(
         x=alt.X('Category', title='Sentiment'), 
         y=alt.Y('Value', title='Value of Sentiment (0 to 1)'),
-        tooltip=['Category', 'Value']
+        tooltip=['Category', 'Value'],
+        color=alt.Color('Category:N', scale=color_scale)  # Specify the color scale
     ).properties(
         #TO DO: create the title to a better formatted date, for ex. Dec 2023 -- we would need to parse timestamp 12-03..
         title=timestamp,
@@ -96,6 +124,8 @@ def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_tota
 #function that will read every 5000 characters
 # Function to filter data
 def sliceData(df, selected_columns, chunk_size, timestamp, credential):
+    print("here")
+
     chunks_list = []  # List to accumulate chunks
     
         # Iterate over selected columns
@@ -112,8 +142,6 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
 
                 # to not append a cell that either has "" string or NaN cell value
                 non_empty_chunk = df['current_character'][(df['current_character'] != '') & df['current_character'].notna()].tolist()
-                
-                #Note: seems like when passing comments in the api, there were words that were cropped off, hence I check all indexes in each chunk -- there still might be an issue with this tho
 
                 # Check if it's the last chunk, and if not, truncate to the last existing space
                 for i, chunk in enumerate(non_empty_chunk):
@@ -139,12 +167,15 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
                 df[col] = df[col].str.slice(non_empty_chunk_size)
     
                 
-    counter = 1
+    counter = 0
     sadness_total = 0
     joy_total = 0
     fear_total = 0
     disgust_total = 0
     anger_total = 0
+
+    # initialize a set of keywords in the responses from IBM   
+    text_items = set()
 
     # Display or process the accumulated chunks
     for idx, chunk in enumerate(chunks_list):
@@ -155,7 +186,6 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
         #print(string)
         #converts json to string
         json_string = json.dumps(string)
-        print(f"json_string: " + json_string)
 
         #find api key and enter it inside the curly braces
         authenticator = IAMAuthenticator(credential)
@@ -170,9 +200,15 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
             features=Features(keywords=KeywordsOptions(sentiment=True,emotion=True,limit=5))).get_result()
 
         json_extension = ".json"
-        json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/sentiment_{timestamp}_{counter}{json_extension}"
+        #save it to file path with ALL IBM responses
+        json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/IBM-Responses/sentiment_{timestamp}_{counter}{json_extension}"
 
-        print(json_file_path)
+        print(f"current path: {json_file_path}")
+
+        #gets the list of keywords that are popular in each reponse
+        for keyword in response["keywords"]:
+            text_items.add(str(keyword["text"]))
+
 
         # Calculate average emotion values for each keyword PER JSON
         sadness = sum(keyword.get("emotion", {}).get("sadness", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
@@ -181,23 +217,57 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
         disgust = sum(keyword.get("emotion", {}).get("disgust", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
         anger = sum(keyword.get("emotion", {}).get("anger", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
 
-        #add it to a total sum FOR ALL JSONS PER MONTH
+        #add it to a total sum FOR ALL JSONS PER DAY
         sadness_total += sadness
         joy_total += joy
         fear_total += fear
         disgust_total += disgust
         anger_total += anger
 
+        print(f"sadness_total: {sadness_total}")
 
-
-        # Write to JSON file
+        # Write to JSON file for each response
         with open(json_file_path, 'w') as json_file:
             json.dump(response, json_file, indent=4)
 
-
-
         #starting counter for the amount of sentiment response  taken
         counter += 1
+
+
+    #sample code by: https://stackoverflow.com/questions/34489706/create-json-object-with-variables-from-an-array 
+    line_items = []
+
+    #create a new json with the daily results for each response
+    #will create our averages
+    sadness_average = sadness_total/counter
+    joy_average = joy_total/counter
+    fear_average = fear_total/counter
+    disgust_average = disgust_total/counter
+    anger_average = anger_total/counter
+
+    #convert the list of keywords got from set to a strign separated by a comma
+    list_of_keywords = ', '.join(text_items)
+
+    daily_json = {
+                "emotion": {
+                    "sadness": sadness_average,
+                    "joy": joy_average,
+                    "fear": fear_average,
+                    "disgust": disgust_average,
+                    "anger": anger_average
+                },
+                "text" : list_of_keywords
+            }
+    
+    json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/Daily-Responses/sentiment_{timestamp}{json_extension}"
+
+
+    # Write to JSON file for data each day
+    with open(json_file_path, 'w') as json_file:
+        json.dump(daily_json, json_file, indent=4)
+
+    print(f"written to {json_file_path}")
+
 
     monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp)
 
