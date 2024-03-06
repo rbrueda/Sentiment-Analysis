@@ -63,13 +63,13 @@ def filterData(df):
     new_df = new_df.apply(lambda x: x.map(lambda elem: re.sub(emoji_pattern, ' ', str(elem)) if pd.notna(elem) and not isinstance(elem, list) else elem))
 
     # cleans the dataframe from escape characters
-    new_df = new_df.replace(to_replace=r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*", value='', regex=True)
-    # cleans the dataframe from hyperlinks
-    new_df = new_df.replace(to_replace=r'\\[^\s]', value='', regex=True)
-    # cleans the dataframe from asterisks
-    new_df = new_df.replace(to_replace=r'\*+', value=' ', regex=True)
-    #additonal characters that where not cleaned
-    new_df = new_df.replace(to_replace=r'([*/<>#]|/|&#x200B;)+|\s{2,}', value=' ', regex=True)
+    # new_df = new_df.replace(to_replace=r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*", value='', regex=True)
+    # # cleans the dataframe from hyperlinks
+    # new_df = new_df.replace(to_replace=r'\\[^\s]', value='', regex=True)
+    # # cleans the dataframe from asterisks
+    # new_df = new_df.replace(to_replace=r'\*+', value=' ', regex=True)
+    # #additonal characters that where not cleaned
+    # new_df = new_df.replace(to_replace=r'([*/<>#]|/|&#x200B;)+|\s{2,}', value=' ', regex=True)
 
     # Apply the function to each element in the "comments" column
     new_df['comments'] = new_df['comments'].apply(lambda comments: [re.sub(emoji_pattern, ' ', str(comment)) for comment in comments] if isinstance(comments, list) else comments)
@@ -124,7 +124,6 @@ def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_tota
 #function that will read every 5000 characters
 # Function to filter data
 def sliceData(df, selected_columns, chunk_size, timestamp, credential):
-    print("here")
 
     chunks_list = []  # List to accumulate chunks
     
@@ -133,7 +132,7 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
     
         # Check if the column has any non-empty strings
         if df[col].str.len().sum() > 0:
-
+                #! gets stuck here: figure out issue
             # Loop until there are no more characters
             while any(df[col].str.len() > 0):
                 
@@ -179,6 +178,7 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
 
     # Display or process the accumulated chunks
     for idx, chunk in enumerate(chunks_list):
+        print(chunk)
         st.write(f"Chunk {idx + 1}:", chunk)
         #print(f"chunk {idx}:")
 
@@ -235,41 +235,41 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
 
 
     #sample code by: https://stackoverflow.com/questions/34489706/create-json-object-with-variables-from-an-array 
-    line_items = []
+    # line_items = []
 
-    #create a new json with the daily results for each response
-    #will create our averages
-    sadness_average = sadness_total/counter
-    joy_average = joy_total/counter
-    fear_average = fear_total/counter
-    disgust_average = disgust_total/counter
-    anger_average = anger_total/counter
+    # #create a new json with the daily results for each response
+    # #will create our averages
+    # sadness_average = sadness_total/counter
+    # joy_average = joy_total/counter
+    # fear_average = fear_total/counter
+    # disgust_average = disgust_total/counter
+    # anger_average = anger_total/counter
 
     #convert the list of keywords got from set to a strign separated by a comma
-    list_of_keywords = ', '.join(text_items)
+    # list_of_keywords = ', '.join(text_items)
 
-    daily_json = {
-                "emotion": {
-                    "sadness": sadness_average,
-                    "joy": joy_average,
-                    "fear": fear_average,
-                    "disgust": disgust_average,
-                    "anger": anger_average
-                },
-                "text" : list_of_keywords
-            }
+    # daily_json = {
+    #             "emotion": {
+    #                 "sadness": sadness_average,
+    #                 "joy": joy_average,
+    #                 "fear": fear_average,
+    #                 "disgust": disgust_average,
+    #                 "anger": anger_average
+    #             },
+    #             "text" : list_of_keywords
+    #         }
     
-    json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/Daily-Responses/sentiment_{timestamp}{json_extension}"
+    # json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/Daily-Responses/sentiment_{timestamp}{json_extension}"
 
 
-    # Write to JSON file for data each day
-    with open(json_file_path, 'w') as json_file:
-        json.dump(daily_json, json_file, indent=4)
+    # # Write to JSON file for data each day
+    # with open(json_file_path, 'w') as json_file:
+    #     json.dump(daily_json, json_file, indent=4)
 
-    print(f"written to {json_file_path}")
+    # print(f"written to {json_file_path}")
 
 
-    monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp)
+    #monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp)
 
 
 
@@ -425,16 +425,16 @@ print("saved filter data to csv")
 # read the csv
 # df = pd.read_csv('reddit_results.csv', encoding='utf-8')
 
-
+#! Gets stuck here: to do figure out why its lagging (file format?)
 
 #get content in title, description and comments from our filtered df 
 selected_columns = ["title", "description", "comments"]
-subset_df = new_df.loc[:, selected_columns]
+# subset_df = new_df.loc[:, selected_columns]
 
 chunk_size = 10000 #maximum amount of characters allowed per request ot the ibm api
 
 #this will slice data every 5000 characters and then make request to sentiment api
-sliceData(subset_df, selected_columns, chunk_size, timestamp, credentials[5])
+sliceData(new_df, selected_columns, chunk_size, timestamp, credentials[5])
 
 
 # Setup logging
