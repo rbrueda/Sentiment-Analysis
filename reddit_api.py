@@ -22,18 +22,16 @@ import streamlit as st
 #this is to visualize graph on streamlit
 import altair as alt
 import regex
+import ast
 
 
 # #this will avoid the csv error -- if this doesnt fix the issue idk what will
 csv.field_size_limit(131072)
 
-# Function to remove hyperlinks
-def remove_hyperlinks(text):
-    return re.sub(r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*", '', text)
 
 # Function to remove escape characters
-def remove_escape_characters(text):
-    return text.encode('utf-8').decode('unicode_escape')
+def remove_escape_chars(text):
+    return re.sub(r'\\.', '', text)
 
 def filterData(df):
     # preprocessing part of code
@@ -56,27 +54,29 @@ def filterData(df):
     columns_to_include = ['title', 'description', 'comments', 'posted_date']
     new_df = df[columns_to_include]
 
-    # this is a more efficient way to do the below code in which will allow for any size -- wont result to csv field limit error
-    # Apply the function only to non-list columns
-    # Use DataFrame.apply with the map method
-    #for unicode pattern
+
+    #replaces emoji patterns
     new_df = new_df.apply(lambda x: x.map(lambda elem: re.sub(emoji_pattern, ' ', str(elem)) if pd.notna(elem) and not isinstance(elem, list) else elem))
 
-    # cleans the dataframe from escape characters
-    # new_df = new_df.replace(to_replace=r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*", value='', regex=True)
-    # # cleans the dataframe from hyperlinks
-    # new_df = new_df.replace(to_replace=r'\\[^\s]', value='', regex=True)
-    # # cleans the dataframe from asterisks
-    # new_df = new_df.replace(to_replace=r'\*+', value=' ', regex=True)
-    # #additonal characters that where not cleaned
-    # new_df = new_df.replace(to_replace=r'([*/<>#]|/|&#x200B;)+|\s{2,}', value=' ', regex=True)
+    # cleans the dataframe from hyperlinks -- issues with this!
+    new_df = new_df.replace(to_replace=r"((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*", value='', regex=True)
+    
+    #clearns dataframe from escape characters?
+    new_df = new_df.replace(to_replace=r'\\[^\s]', value='', regex=True)
+    
+    # cleans the dataframe from asterisks
+    new_df = new_df.replace(to_replace=r'\*+', value=' ', regex=True)
+    
+    #additonal characters that were not cleaned
+    new_df = new_df.replace(to_replace=r'([*/<>#]|/|&#x200B;)+|\s{2,}', value=' ', regex=True)
 
     # Apply the function to each element in the "comments" column
     new_df['comments'] = new_df['comments'].apply(lambda comments: [re.sub(emoji_pattern, ' ', str(comment)) for comment in comments] if isinstance(comments, list) else comments)
 
-
-
     return new_df
+
+
+
 
 # make monthly average function -- bar graph 
 def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp):
@@ -118,54 +118,248 @@ def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_tota
     st.altair_chart(chart, use_container_width=True)
 
 
-    #TO DO: visualization idea: would add these averages to an exitsting line graph thta has sadnesses from other months (show trend)
+def remove_special_characters(input_string):
+    # Use regex to replace all instances of special characters including square brackets with an empty string
+    result_string = re.sub(r'[\\\@\&\$\[\]\u0000-\u001f]', '', input_string)
+    return result_string
 
 
-#function that will read every 5000 characters
-# Function to filter data
-def sliceData(df, selected_columns, chunk_size, timestamp, credential):
+def make_quotes_same(input_string, target_quote='"'):
+    if target_quote not in ('"', "'"):
+        raise ValueError("Target quote must be either ' or \"")
 
+        #'s . 't, 'm
+
+    return input_string.replace("'", target_quote).replace('"', target_quote).replace('“', target_quote).replace('”', target_quote).replace("‘", "'")
+
+
+def remove_illegal_decimal_literals(input_string):
+    # Define a regular expression pattern to match illegal decimal literals
+    pattern = r'(?<!\d)[+-]?\d+\.\d+\b(?!\.\d+)'
+    
+    # Use re.sub() to replace illegal decimal literals with an empty string
+    result = re.sub(pattern, '', input_string)
+    
+    return result
+
+
+
+def categorizeData(df, timestamp):
+    #all the keywords in order to categorize the data
+    #index 0: society
+    #index 1: education
+    #index 2: creativity
+    #index 3: ethical / legal
+    #index 4: industry
+    categorization_keywords = [
+
+    ["Poverty", "Inequality", "Discrimination", "Social justice", "Human rights", 
+    "Homelessness", "Unemployment", "Education inequality", "Healthcare access", "Mental health stigma",
+    "Civil rights movement", "Feminism", "LGBTQ+ rights", "Environmental activism", "Black Lives Matter", 
+    "#MeToo movement", "Indigenous rights", "Disability rights",
+    "Population trends", "Urbanization", "Rural communities", "Aging population", "Youth demographics", 
+    "Migration patterns", "Refugee crisis", "Immigration policy",
+    "Multiculturalism", "Cultural assimilation", "Cultural preservation", "Cultural heritage", 
+    "Cultural identity", "Ethnic communities", "Intercultural communication",
+    "Family structure", "Marriage trends", "Gender roles", "Parenting styles", "Education system", 
+    "Healthcare system", "Criminal justice system", "Political institutions",
+    "Community engagement", "Neighborhood revitalization", "Community organizing", "Grassroots movements", 
+    "Social cohesion", "Community resilience",
+    "Social networks", "Social support", "Interpersonal relationships", "Friendship", 
+    "Community bonds", "Social capital", "Social isolation",
+    "Social media impact", "Digital divide", "Online communities", "Technology addiction", 
+    "Cyberbullying", "Privacy concerns", "Digital literacy",
+    "Global interconnectedness", "Cultural exchange", "Global economy", "International relations", 
+    "Transnational corporations", "Global governance", "Global citizenship",
+    "Social progress", "Social reform", "Social innovation", "Social entrepreneurship", 
+    "Sustainable development goals", "Advocacy", "Policy change"],
+
+    ["Education", "Schools", "Teachers", "Students", "Classrooms", "Curriculum", "Learning", 
+    "Educational technology", "Online learning", "Distance education", "E-learning", "Blended learning", 
+    "MOOCs", "Virtual classrooms", "Remote learning", "Digital learning", "Pedagogy", "Andragogy", 
+    "Teaching methods", "Instructional design", "Educational psychology", "Assessment", "Testing", 
+    "Grading", "Standardized tests", "Alternative assessments", "Learning outcomes", "Educational standards", 
+    "Curriculum development", "Education policy", "Education reform", "Educational equity", "Access to education", 
+    "Quality education", "Inclusive education", "Special education", "Gifted education", "Early childhood education", 
+    "Primary education", "Secondary education", "High school", "K-12 education", "Higher education", 
+    "College", "University", "Community college", "Vocational education", "Technical education", 
+    "STEM education", "STEAM education", "21st-century skills", "Critical thinking", "Problem-solving", 
+    "Creativity", "Collaboration", "Communication skills", "Digital literacy", "Media literacy", 
+    "Information literacy", "Financial literacy", "Civic education", "Global citizenship education", 
+    "Environmental education", "Health education", "Physical education", "Arts education", 
+    "Music education", "Language education", "Bilingual education", "Multilingual education", 
+    "Teacher training", "Professional development", "Educational leadership", "School management", 
+    "Parental involvement", "Home-school collaboration", "Education funding", "Public education", 
+    "Private education", "Charter schools", "Home schooling", "Education technology companies", 
+    "Educational research", "Educational conferences", "Education journals", "Education blogs", 
+    "Education news", "Education advocacy", "Education grants" ],
+
+    ["Creativity", "Creative thinking", "Innovation", "Imagination", "Originality", "Problem-solving", 
+    "Critical thinking", "Divergent thinking", "Convergent thinking", "Lateral thinking", "Design thinking", 
+    "Artistic expression", "Creative process", "Inspiration", "Ideation", "Brainstorming", "Mind mapping", 
+    "Visualization", "Experimentation", "Risk-taking", "Playfulness", "Curiosity", "Open-mindedness", 
+    "Flexibility", "Adaptability", "Resilience", "Resourcefulness", "Inventiveness", "Ingenuity", 
+    "Entrepreneurship", "Intrapreneurship", "Creative industries", "Creative economy", "Creative class", 
+    "Cultural creativity", "Creativity in education", "Creative teaching", "Fostering creativity", 
+    "Creative environments", "Creative collaboration", "Interdisciplinary creativity", "Cross-disciplinary creativity", 
+    "Digital creativity", "Media creativity", "Film creativity", "Music creativity", "Literary creativity", 
+    "Visual arts creativity", "Performing arts creativity", "Design creativity", "Fashion creativity", 
+    "Architecture creativity", "Creative writing", "Poetry", "Storytelling", "Narrative creativity", 
+    "Creative problem-solving", "Creativity and innovation management", "Creative leadership", 
+    "Creative teams", "Creative culture", "Creativity research", "Creativity measurement", 
+    "Creativity assessment", "Assessing creative potential", "Assessing creative thinking", 
+    "Assessing creative skills", "Assessing creative performance", "Assessing creative products"],
+
+    ["Ethics", "Legal", "Morality", "Law", "Regulation", "Compliance", "Governance", "Policy", 
+    "Ethical principles", "Legal principles", "Human rights", "Civil rights", "Privacy rights", 
+    "Data protection", "Confidentiality", "Intellectual property", "Copyright", "Patents", 
+    "Trademark", "Fair use", "Plagiarism", "Cybersecurity", "Data privacy", "Online safety", 
+    "Surveillance", "Ethical behavior", "Legal framework", "Legal system", "Court system", 
+    "Justice system", "Legal rights", "Legal obligations", "Legal responsibilities", 
+    "Legal liability", "Legal precedent", "Legal precedent", "Case law", "Statutory law", 
+    "Common law", "Constitutional law", "Criminal law", "Civil law", "Tort law", "Contract law", 
+    "International law", "Humanitarian law", "Environmental law", "Labor law", "Employment law", 
+    "Healthcare law", "Corporate law", "Business law", "Financial law", "Securities law", 
+    "Tax law", "Immigration law", "Family law", "Property law", "Real estate law", 
+    "Administrative law", "Regulatory law", "Ethical considerations", "Legal implications", 
+    "Legal compliance", "Ethical dilemmas", "Legal disputes", "Legal issues", "Ethical issues", 
+    "Legal analysis", "Ethical analysis", "Legal advice", "Legal counsel", "Ethical decision-making", 
+    "Legal interpretation", "Legal research", "Ethical research", "Legal ethics", "Professional ethics", 
+    "Corporate ethics", "Business ethics", "Medical ethics", "Research ethics", "Journalistic ethics", 
+    "Ethics codes", "Professional standards", "Legal standards", "Ethical standards", 
+    "Ethical guidelines", "Legal guidelines", "Ethical review", "Legal review", "Ethical oversight", 
+    "Legal compliance", "Ethical training", "Legal training", "Ethical education", "Legal education"],
+    
+    ["Industry", "Manufacturing", "Production", "Factory", "Industrialization", "Industrial revolution", 
+    "Industrial sector", "Industrial development", "Industrial engineering", "Industrial design", 
+    "Industrial processes", "Industrial automation", "Industry 4.0", "Smart factories", 
+    "Advanced manufacturing", "Mass production", "Lean manufacturing", "Quality control", 
+    "Supply chain management", "Logistics", "Operations management", "Efficiency", 
+    "Productivity", "Cost reduction", "Resource optimization", "Sustainability", 
+    "Environmental impact", "Green manufacturing", "Circular economy", 
+    "Renewable energy", "Clean technology", "Energy efficiency", "Waste management", 
+    "Pollution control", "Emissions reduction", "Carbon footprint", "Industrial safety", 
+    "Occupational health", "Workplace safety", "Safety regulations", "Industrial accidents", 
+    "Risk management", "Emergency preparedness", "Disaster recovery", "Regulatory compliance", 
+    "Industrial policy", "Government regulations", "Trade policies", "Tariffs", "Import/export", 
+    "Globalization", "International trade", "Trade agreements", "Supply and demand", 
+    "Market trends", "Market analysis", "Competitive analysis", "Market competition", 
+    "Market segmentation", "Market share", "Market growth", "Market expansion", 
+    "Market opportunities", "Market challenges", "Market forecasting", "Business strategy", 
+    "Strategic planning", "Business development", "Market development", "Product development", 
+    "Innovation", "Research and development", "Technology adoption", "Digital transformation", 
+    "Data analytics", "Big data", "Artificial intelligence", "Machine learning", 
+    "Internet of Things (IoT)", "Robotics", "Automation", "Cybersecurity", 
+    "Information technology", "Cloud computing", "Blockchain", "Augmented reality", 
+    "Virtual reality", "Smart technology", "Smart cities", "Smart infrastructure", 
+    "Smart transportation", "Smart grid", "Smart homes", "Smart appliances", 
+    "Smart sensors", "Smart devices", "Industry associations", "Trade organizations", 
+    "Industry conferences", "Industry publications", "Industry news"]
+
+    ]
+
+    def contains_keyword(df, categorization_keywords):
+        filtered_data = pd.DataFrame()
+
+
+        # Iterate over each row in the DataFrame
+        for index, row in df.iterrows(): 
+            # Iterate over each column
+            for column in df.columns: 
+
+                # Check if the column is 'comments'
+                if column == 'comments':
+                    filtered_comments = []
+
+                    #check if column section is a proper string
+                    if isinstance(row[column], str):
+
+                        string = make_quotes_same(row[column])
+                        new_string = remove_illegal_decimal_literals(string)
+
+                        i = 0
+
+                        #";;;" acts as a delimiter to separate each comment
+                        for comment in (new_string.split(";;;")):
+                            print(f"comments {i}: {comment}")
+                            i +=1
+                            print()
+                            # Check if any keyword is present in the comment
+                            if any(keyword in comment for keyword in categorization_keywords):
+                                # Append the comment to the filtered comments list
+                                filtered_comments.append(comment)
+                        # Update the value in the DataFrame with the filtered comments list
+                        #creates a list of characters
+                        filtered_comments = str(filtered_comments)
+                        filtered_data.at[index, column] = filtered_comments
+                # For other columnsfiltered_comments = str(filtered_comments)
+                else:
+                    # Check if the value in the column is a string and contains any keyword
+                    if not pd.isna(row[column]) and isinstance(row[column], str) and any(keyword in row[column] for keyword in categorization_keywords):
+                        # Update the value in the DataFrame with the original string
+                        filtered_data.at[index, column] = row[column]
+
+        # Ensure the data types of the columns remain consistent
+        filtered_data = filtered_data.infer_objects()
+        st.write(filtered_data)
+        return filtered_data
+
+
+
+    for i in range (0, len(categorization_keywords)):
+        # Concatenate keywords into a regular expression pattern
+        pattern = '|'.join(categorization_keywords[i])
+
+        filtered_data = contains_keyword(df, pattern)
+        sliceData(filtered_data, 10000, timestamp, credentials[5])
+                
+    
+
+
+
+
+#function that will send information to IBM API -- parses max amount of characters each time
+def sliceData(df, chunk_size, timestamp, credential):
+    st.write(df)
+
+    selected_columns = ["title", "description", "comments"]
     chunks_list = []  # List to accumulate chunks
     
-        # Iterate over selected columns
     for col in selected_columns:
-    
         # Check if the column has any non-empty strings
         if df[col].str.len().sum() > 0:
-                #! gets stuck here: figure out issue
             # Loop until there are no more characters
             while any(df[col].str.len() > 0):
-                
                 # Get the first chunk of characters in each string
                 df['current_character'] = df[col].str.slice(0, chunk_size)
 
-                # to not append a cell that either has "" string or NaN cell value
+                st.write(df)
+
+                # Filter out empty and NaN cells
                 non_empty_chunk = df['current_character'][(df['current_character'] != '') & df['current_character'].notna()].tolist()
 
-                # Check if it's the last chunk, and if not, truncate to the last existing space
+
+                # Truncate chunks at last space if necessary
                 for i, chunk in enumerate(non_empty_chunk):
-                    #checks if it is last index in the list
-                    #if i == len(non_empty_chunk) - 1 and not chunk.endswith(" "):
                     if not chunk.endswith(" "):
-                        #finds the last occurence of " "
                         last_space_index = chunk.rfind(" ")
-                        #if space is found, concatenate the string from that occurence
                         if last_space_index != -1:
                             non_empty_chunk[i] = chunk[:last_space_index]
-                            if (i+1 < len(non_empty_chunk)):
-                                #bring truncated part ot next index so we dont lose the word 
-                                non_empty_chunk[i+1] = str(chunk[last_space_index:]) + " " + non_empty_chunk[i+1]
+                            if i + 1 < len(non_empty_chunk):
+                                non_empty_chunk[i + 1] = chunk[last_space_index + 1:] + " " + non_empty_chunk[i + 1]
+                            else:
+                                break
 
-                #checks if the chunk has content
+                # Append non-empty chunks
                 if non_empty_chunk:
                     chunks_list.append(non_empty_chunk)
+                else:
+                    break
 
-                # find the updated length of non_empty_chunk
-                non_empty_chunk_size = sum(len(chunk) for chunk in non_empty_chunk)
-                #remove everything from non_empty_chunk from df
-                df[col] = df[col].str.slice(non_empty_chunk_size)
-    
-                
+                # Update the DataFrame
+                chunk_size = sum(len(chunk) for chunk in non_empty_chunk)
+                df[col] = df[col].str.slice(chunk_size)
+          
     counter = 0
     sadness_total = 0
     joy_total = 0
@@ -178,14 +372,17 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
 
     # Display or process the accumulated chunks
     for idx, chunk in enumerate(chunks_list):
-        print(chunk)
-        st.write(f"Chunk {idx + 1}:", chunk)
-        #print(f"chunk {idx}:")
 
         string = ' '.join(chunk)
-        #print(string)
         #converts json to string
         json_string = json.dumps(string)
+
+        string = remove_special_characters(json_string)
+
+        st.write(f"Chunk {idx+1}:", string)
+
+        if (string == "" or string == " " or len(string) < 200):
+            continue
 
         #find api key and enter it inside the curly braces
         authenticator = IAMAuthenticator(credential)
@@ -234,46 +431,8 @@ def sliceData(df, selected_columns, chunk_size, timestamp, credential):
         counter += 1
 
 
-    #sample code by: https://stackoverflow.com/questions/34489706/create-json-object-with-variables-from-an-array 
-    # line_items = []
-
-    # #create a new json with the daily results for each response
-    # #will create our averages
-    # sadness_average = sadness_total/counter
-    # joy_average = joy_total/counter
-    # fear_average = fear_total/counter
-    # disgust_average = disgust_total/counter
-    # anger_average = anger_total/counter
-
-    #convert the list of keywords got from set to a strign separated by a comma
-    # list_of_keywords = ', '.join(text_items)
-
-    # daily_json = {
-    #             "emotion": {
-    #                 "sadness": sadness_average,
-    #                 "joy": joy_average,
-    #                 "fear": fear_average,
-    #                 "disgust": disgust_average,
-    #                 "anger": anger_average
-    #             },
-    #             "text" : list_of_keywords
-    #         }
-    
-    # json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/Daily-Responses/sentiment_{timestamp}{json_extension}"
 
 
-    # # Write to JSON file for data each day
-    # with open(json_file_path, 'w') as json_file:
-    #     json.dump(daily_json, json_file, indent=4)
-
-    # print(f"written to {json_file_path}")
-
-
-    #monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp)
-
-
-
-# print(0)
 credentials = []
 
 #create a scheduler
@@ -301,15 +460,6 @@ with open('credentials.txt', 'r') as f:
 CLIENT_ID = credentials[0]
 SECRET_KEY = credentials[1]
 
-# #print(sqlalchemy.__version__)
-
-#db credentials
-# usr = 'root'
-# pwd = credentials[2] #password to enter database -- wont need until later
-# host = '127.0.0.1'
-# port = 3306
-# dbName = 'redditdb'
-# tableName = 'reddit_credentials'
 
 #to get comments
 reddit = praw.Reddit(
@@ -324,32 +474,24 @@ reddit = praw.Reddit(
 # Define the terms to search for and the subreddit
 search_terms = ['gpt', 'ai', 'generative ai', 'chatgpt']
 subreddit = 'all'  # Or specify a subreddit
-print(1)
 
 # Calculate date range for "yesterday" (or adjust to the specific day you're fetching for)
 yesterday = datetime.utcnow() - timedelta(days=60) #this will extract posts from the last 60 days 
 date_limit = yesterday.strftime('%Y%m%d')
 timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 timeframe = datetime.utcnow() - timedelta(days=1)
-# print(date_limit)
 
 # thru this new change in an hour
 
-print(2)
 # Fetch posts
-
-#should I scrape data per day?
 posts_data = []
 # Create a query string with logical OR between search terms
 query_string = " OR ".join(search_terms)
 
 #place in a set for time complexity - will search in O(1)
 unique_submission_ids = set()
-#print(f"print test: {reddit.subreddit(subreddit)}")
-#for term in search_terms: this wouldn't be necessary
-    #instead of month -- try per week -- or make scheduler per week (work on tomorrow) - search all terms at once
+
 for submission in reddit.subreddit(subreddit).search(query_string, time_filter='day', limit=20):
-    #print(f"submission: {submission}")
     try:
         submission.comments.replace_more(limit=20)
         
@@ -362,7 +504,7 @@ for submission in reddit.subreddit(subreddit).search(query_string, time_filter='
                 posts_data.append({
                     'title': submission.title,
                     'description': submission.selftext,
-                    'comments': [comment.body for comment in submission.comments.list()],
+                    'comments': [";;;".join(comment.body for comment in submission.comments.list())],
                     'subreddit': submission.subreddit.display_name,
                     'karma': submission.score,
                     'url': submission.url,
@@ -387,54 +529,28 @@ for submission in reddit.subreddit(subreddit).search(query_string, time_filter='
 # Convert to DataFrame
 df = pd.DataFrame(posts_data)
 
-#ensure code is not in random order
-
-# # Sort the DataFrame by 'posted_date'
-# df.sort_values(by='posted_date', inplace=True)
-
-# # Reset the index after sorting
-# df.reset_index(drop=True, inplace=True)
 
 csv_file_path = 'reddit_posts_'+timestamp+'.csv'
+#raw data path
 csv_file_path1 = '/home/rocio/Documents/Research/Raw-Reddit-Data/'+csv_file_path
-#csv to write to
-#print(csv_file_path1)
+
+#go from df -> csv
 df.to_csv(csv_file_path1, index=False)
 
-#think this might fix issue with filtering dataframe -- make it a specfic encoding 
+#go from csv -> df
 df = pd.read_csv(csv_file_path1, encoding='utf-8')
 
+#filtered data path
 csv_file_path2 = '/home/rocio/Documents/Research/Reddit-Data/'+csv_file_path
 
 new_df = filterData(df)
 
-#df.to_csv(csv_file_path1, index=False)
 new_df.to_csv(csv_file_path2, index=False)
 print("saved filter data to csv")
 
-# date = date_limit
-# dateTimeFrame = datetime.utcnow()
+timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 
-# dt_str = str(dateTimeFrame)
-
-
-#TO DO- convert this into a function (call this filteredData)
-
-# Save DataFrame to a CSV file or database
-
-# read the csv
-# df = pd.read_csv('reddit_results.csv', encoding='utf-8')
-
-#! Gets stuck here: to do figure out why its lagging (file format?)
-
-#get content in title, description and comments from our filtered df 
-selected_columns = ["title", "description", "comments"]
-# subset_df = new_df.loc[:, selected_columns]
-
-chunk_size = 10000 #maximum amount of characters allowed per request ot the ibm api
-
-#this will slice data every 5000 characters and then make request to sentiment api
-sliceData(new_df, selected_columns, chunk_size, timestamp, credentials[5])
+categorizeData(new_df, timestamp)
 
 
 # Setup logging

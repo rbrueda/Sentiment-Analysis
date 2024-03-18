@@ -1,3 +1,4 @@
+import ast
 import pandas as pd
 import streamlit as st
 import regex as re
@@ -12,6 +13,13 @@ def remove_special_characters(input_string):
     # Use regex to replace all instances of special characters including square brackets with an empty string
     result_string = re.sub(r'[\\\@\&\$\[\]\u0000-\u001f]', '', input_string)
     return result_string
+
+
+def make_quotes_same(input_string, target_quote='"'):
+    if target_quote not in ('"', "'"):
+        raise ValueError("Target quote must be either ' or \"")
+
+    return input_string.replace("'", target_quote).replace('"', target_quote).replace("’", "'").replace('“', target_quote).replace('”', target_quote).replace("‘", "'")
 
 #function that will read every 5000 characters
 # Function to filter data
@@ -260,12 +268,17 @@ def categorizeData(df, timestamp):
                     # print(type(row[column]))
                     #if isinstance(row[column], list):
                     if isinstance(row[column], str):
+
+                        string = make_quotes_same(row[column])
+
                         
                         print()
                         # Create a list to store filtered comments 
                         filtered_comments = []
                         # Iterate over each comment in the list
-                        for comment in (row[column].split("',") or row[column].split("\",")): 
+                        lst = ast.literal_eval(row[column])
+                        for comment in (string.split("',") or string.split("\",")): 
+                        # for comment in lst:
                         # for comment in row[column]:
                             print(f"comment: {comment}")
                             print()
