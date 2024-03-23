@@ -1,3 +1,6 @@
+import re
+import pandas as pd
+
 def filterData(df):
     # preprocessing part of code
     # emoji pattern code by: https://stackoverflow.com/questions/33404752/removing-emojis-from-a-string-in-python

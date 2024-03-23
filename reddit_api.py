@@ -24,6 +24,11 @@ import altair as alt
 import regex
 import ast
 
+#todo: work on biweekly data 
+#   - add a function that merges multiple csv files
+#   - keep the counter and total --> uses this for the average results --> goes to data visualization
+#   - place the responses in separate folders --> so no files will be overwriten
+
 
 # #this will avoid the csv error -- if this doesnt fix the issue idk what will
 csv.field_size_limit(131072)
@@ -394,7 +399,9 @@ def sliceData(df, chunk_size, timestamp, credential):
         response = natural_language_understanding.analyze(
             # url='www.ibm.com',
             text = json_string,
-            features=Features(keywords=KeywordsOptions(sentiment=True,emotion=True,limit=5))).get_result()
+            # features=Features(keywords=KeywordsOptions(sentiment=True,emotion=True,limit=5))).get_result()
+            features = Features(emotion=EmotionOptions())).get_result()
+
 
         json_extension = ".json"
         #save it to file path with ALL IBM responses
@@ -403,16 +410,21 @@ def sliceData(df, chunk_size, timestamp, credential):
         print(f"current path: {json_file_path}")
 
         #gets the list of keywords that are popular in each reponse
-        for keyword in response["keywords"]:
-            text_items.add(str(keyword["text"]))
+        # for keyword in response["keywords"]:
+        #     text_items.add(str(keyword["text"]))
 
 
         # Calculate average emotion values for each keyword PER JSON
-        sadness = sum(keyword.get("emotion", {}).get("sadness", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
-        joy = sum(keyword.get("emotion", {}).get("joy", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
-        fear = sum(keyword.get("emotion", {}).get("fear", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
-        disgust = sum(keyword.get("emotion", {}).get("disgust", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
-        anger = sum(keyword.get("emotion", {}).get("anger", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+        # sadness = sum(keyword.get("emotion", {}).get("sadness", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+        # joy = sum(keyword.get("emotion", {}).get("joy", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+        # fear = sum(keyword.get("emotion", {}).get("fear", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+        # disgust = sum(keyword.get("emotion", {}).get("disgust", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+        # anger = sum(keyword.get("emotion", {}).get("anger", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
+        sadness = response['emotion']['document']['emotion']['sadness']
+        joy = response['emotion']['document']['emotion']['joy']
+        fear = response['emotion']['document']['emotion']['fear']
+        disgust = response['emotion']['document']['emotion']['disgust']
+        anger = response['emotion']['document']['emotion']['anger']
 
         #add it to a total sum FOR ALL JSONS PER DAY
         sadness_total += sadness
