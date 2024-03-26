@@ -23,6 +23,7 @@ import streamlit as st
 import altair as alt
 import regex
 import ast
+import os
 
 #todo: work on biweekly data 
 #   - add a function that merges multiple csv files
@@ -33,6 +34,51 @@ import ast
 # #this will avoid the csv error -- if this doesnt fix the issue idk what will
 csv.field_size_limit(131072)
 
+#gets the last 2 weeks worth of data
+def mergeData():
+    #extract the files in a certain directory
+    folder_name = '/home/rocio/Documents/Research/Reddit-Data'
+    all_files = [os.path.join(folder_name, f) for f in os.listdir(folder_name) if f.endswith('.csv')]
+    #gets the date 14 days ago
+    timeframe = datetime.now() - timedelta(days=14)
+    timeframe= timeframe.strftime('%Y-%m-%d')
+    timeframe = datetime.strptime(timeframe, '%Y-%m-%d')
+
+
+    biweekly_data = []
+    #goes through all the files and checks if any of them are from 14 days ago
+    for file in all_files:
+        file = str(file)
+        data = file.replace("/home/rocio/Documents/Research/Reddit-Data/", "").replace(".csv", "").replace("reddit_posts_", "")
+        match = re.search(r"\d+-(\d+)-(\d+)", data)
+        if match:
+            fileTime = match.group(0)
+            fileTime = datetime.strptime(fileTime, '%Y-%m-%d')
+            print(f"datetime: {datetime}")
+            if (fileTime >= timeframe):
+                #append the file to biweekly_data list
+                biweekly_data.append(file)
+
+    # Initialize an empty list to store DataFrames
+    dataframes_list = []
+
+    # Loop over the list of file paths & read each file into a DataFrame
+    for file in biweekly_data:
+        df = pd.read_csv(file)
+        dataframes_list.append(df)
+
+    # Concatenate all DataFrames into one
+    if (dataframes_list): #if dataframes_list is not null
+        big_dataframe = pd.concat(dataframes_list, ignore_index=True)
+        # Save the concatenated DataFrame to a new CSV file
+        big_csv_filename = 'combined_reddit_data.csv'
+        bi_weekly_directory = '/home/rocio/Documents/Research/Biweekly-Reddit-Data'
+        big_dataframe.to_csv(os.path.join(folder_name, big_csv_filename), index=False)
+        print(f"All data has been combined and written to {big_csv_filename}")
+        return big_dataframe
+    else:
+        print("nothing in dataframe")
+        return None
 
 # Function to remove escape characters
 def remove_escape_chars(text):
@@ -83,10 +129,9 @@ def filterData(df):
 
 
 
-# make monthly average function -- bar graph 
-def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp):
-    #find an optimal way to search through a list of folders in a directory and find all folders that are made in the past 7 days -- hence will keep track of data in the past 7 days
-    #save it in a folder -- monthly sentiment results
+# make biweekly average function -- bar graph 
+def dataVisualization(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp, category):
+    #save it in a folder -- biweeklt sentiment results
 
     #will create our averages
     sadness_average = sadness_total/counter
@@ -95,6 +140,27 @@ def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_tota
     disgust_average = disgust_total/counter
     anger_average = anger_total/counter
 
+    #total sentiment results in json format
+    sentiment_results = {
+        "emotion": {
+            "document": {
+                "emotion": {
+                    "sadness": sadness_average,
+                    "joy": joy_average,
+                    "fear": fear_average,
+                    "disgust": disgust_average,
+                    "anger": anger_average
+                }
+            }
+        }
+    }
+
+    json_path = '/home/rocio/Documents/Research/Sentiment-Data/Biweekly-Responses/' + "sentiment_" + timestamp + "_" + category + ".json"
+    #write sentiment results in json 
+    with open(json_path, 'w') as f:
+        json.dump(sentiment_results, f)
+
+    #create a dataframe with the results
     data = pd.DataFrame({
     'Category':['Sadness', 'Joy', 'Fear', 'Disguist', 'Anger'],
     'Value':[sadness_average, joy_average, fear_average, disgust_average, anger_average]
@@ -113,7 +179,7 @@ def monthlySentiment(counter, sadness_total, joy_total, fear_total, disgust_tota
         tooltip=['Category', 'Value'],
         color=alt.Color('Category:N', scale=color_scale)  # Specify the color scale
     ).properties(
-        #TO DO: create the title to a better formatted date, for ex. Dec 2023 -- we would need to parse timestamp 12-03..
+        #todo: create the title to a better formatted date, for ex. Dec 2023 -- we would need to parse timestamp 12-03..
         title=timestamp,
         width=700,
         height=400
@@ -310,22 +376,38 @@ def categorizeData(df, timestamp):
         return filtered_data
 
 
-
+    #todo: seems like there is an error with the categorization keywords -- there outputting the same results for all categories
     for i in range (0, len(categorization_keywords)):
         # Concatenate keywords into a regular expression pattern
         pattern = '|'.join(categorization_keywords[i])
 
+        #check which category we are currently looking at
+        if (i == 0):
+            category = "society"
+
+        elif (i == 1):
+            category = "education"
+
+        elif (i == 2):
+            category = "creativity"
+        
+        elif (i == 3):
+            category = "ethical"
+
+        else:
+            category = "industry"
+
         filtered_data = contains_keyword(df, pattern)
-        sliceData(filtered_data, 10000, timestamp, credentials[5])
+        sliceData(filtered_data, 50000, timestamp, credentials[5], category)
                 
+    
     
 
 
 
 
 #function that will send information to IBM API -- parses max amount of characters each time
-def sliceData(df, chunk_size, timestamp, credential):
-    st.write(df)
+def sliceData(df, chunk_size, timestamp, credential, category):
 
     selected_columns = ["title", "description", "comments"]
     chunks_list = []  # List to accumulate chunks
@@ -337,8 +419,6 @@ def sliceData(df, chunk_size, timestamp, credential):
             while any(df[col].str.len() > 0):
                 # Get the first chunk of characters in each string
                 df['current_character'] = df[col].str.slice(0, chunk_size)
-
-                st.write(df)
 
                 # Filter out empty and NaN cells
                 non_empty_chunk = df['current_character'][(df['current_character'] != '') & df['current_character'].notna()].tolist()
@@ -384,8 +464,6 @@ def sliceData(df, chunk_size, timestamp, credential):
 
         string = remove_special_characters(json_string)
 
-        st.write(f"Chunk {idx+1}:", string)
-
         if (string == "" or string == " " or len(string) < 200):
             continue
 
@@ -405,21 +483,10 @@ def sliceData(df, chunk_size, timestamp, credential):
 
         json_extension = ".json"
         #save it to file path with ALL IBM responses
-        json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/IBM-Responses/sentiment_{timestamp}_{counter}{json_extension}"
+        json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/IBM-Responses/sentiment_{timestamp}_{counter}_{category}{json_extension}"
 
         print(f"current path: {json_file_path}")
 
-        #gets the list of keywords that are popular in each reponse
-        # for keyword in response["keywords"]:
-        #     text_items.add(str(keyword["text"]))
-
-
-        # Calculate average emotion values for each keyword PER JSON
-        # sadness = sum(keyword.get("emotion", {}).get("sadness", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
-        # joy = sum(keyword.get("emotion", {}).get("joy", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
-        # fear = sum(keyword.get("emotion", {}).get("fear", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
-        # disgust = sum(keyword.get("emotion", {}).get("disgust", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
-        # anger = sum(keyword.get("emotion", {}).get("anger", 0) for keyword in response.get("keywords", [])) / len(response.get("keywords", []))
         sadness = response['emotion']['document']['emotion']['sadness']
         joy = response['emotion']['document']['emotion']['joy']
         fear = response['emotion']['document']['emotion']['fear']
@@ -433,14 +500,14 @@ def sliceData(df, chunk_size, timestamp, credential):
         disgust_total += disgust
         anger_total += anger
 
-        print(f"sadness_total: {sadness_total}")
-
         # Write to JSON file for each response
         with open(json_file_path, 'w') as json_file:
             json.dump(response, json_file, indent=4)
 
         #starting counter for the amount of sentiment response  taken
         counter += 1
+
+    dataVisualization(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp, category)
 
 
 
@@ -493,76 +560,95 @@ date_limit = yesterday.strftime('%Y%m%d')
 timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 timeframe = datetime.utcnow() - timedelta(days=1)
 
-# thru this new change in an hour
+def queryReddit():
+    # Fetch posts
+    posts_data = []
+    # Create a query string with logical OR between search terms
+    query_string = " OR ".join(search_terms)
 
-# Fetch posts
-posts_data = []
-# Create a query string with logical OR between search terms
-query_string = " OR ".join(search_terms)
+    #place in a set for time complexity - will search in O(1)
+    unique_submission_ids = set()
 
-#place in a set for time complexity - will search in O(1)
-unique_submission_ids = set()
+    for submission in reddit.subreddit(subreddit).search(query_string, time_filter='day', limit=20):
+        try:
+            submission.comments.replace_more(limit=20)
+            
+            submission_date = datetime.utcfromtimestamp(submission.created_utc)
+            
+            if submission_date > timeframe: #check if data follows in timeframe - probably dont need since search function already does this
 
-for submission in reddit.subreddit(subreddit).search(query_string, time_filter='day', limit=20):
-    try:
-        submission.comments.replace_more(limit=20)
-        
-        submission_date = datetime.utcfromtimestamp(submission.created_utc)
-        
-        if submission_date > timeframe: #check if data follows in timeframe - probably dont need since search function already does this
+                # Check if the submission ID is not already in the set to avoid duplicates
+                if submission.id not in unique_submission_ids:
+                    posts_data.append({
+                        'title': submission.title,
+                        'description': submission.selftext,
+                        'comments': [";;;".join(comment.body for comment in submission.comments.list())],
+                        'subreddit': submission.subreddit.display_name,
+                        'karma': submission.score,
+                        'url': submission.url,
+                        'posted_date': datetime.utcfromtimestamp(submission.created_utc)
+                    })
 
-            # Check if the submission ID is not already in the set to avoid duplicates
-            if submission.id not in unique_submission_ids:
-                posts_data.append({
-                    'title': submission.title,
-                    'description': submission.selftext,
-                    'comments': [";;;".join(comment.body for comment in submission.comments.list())],
-                    'subreddit': submission.subreddit.display_name,
-                    'karma': submission.score,
-                    'url': submission.url,
-                    'posted_date': datetime.utcfromtimestamp(submission.created_utc)
-                })
+                    # Add the submission ID to the set to track uniqueness
+                    unique_submission_ids.add(submission.id)
+            
+            # Print post_data for debugging
+            print(posts_data)
+            
+        except praw.exceptions.APIException as e:
+            if e.response.status_code == 429:
+                # Sleep for a short duration and then retry
+                time.sleep(5)
+            else:
+                # Handle other API exceptions
+                print(f"API Exception: {e}")
 
-                # Add the submission ID to the set to track uniqueness
-                unique_submission_ids.add(submission.id)
-        
-        # Print post_data for debugging
-        print(posts_data)
-        
-    except praw.exceptions.APIException as e:
-        if e.response.status_code == 429:
-            # Sleep for a short duration and then retry
-            time.sleep(5)
-        else:
-            # Handle other API exceptions
-            print(f"API Exception: {e}")
+    return posts_data
 
+#ask the user for making new query to reddit, or getting biweekly code results
 
-# Convert to DataFrame
-df = pd.DataFrame(posts_data)
+option_result = input("Enter 0 for daily result from reddit query\nEnter 1 for biweekly code analysis\n")
+print(option_result)
+
+#option 0 --> real time daily data from reddit
+if (option_result == "0"):
+    print("here")
+    posts_data = queryReddit()
+    # Convert to DataFrame
+    df = pd.DataFrame(posts_data)
 
 
-csv_file_path = 'reddit_posts_'+timestamp+'.csv'
-#raw data path
-csv_file_path1 = '/home/rocio/Documents/Research/Raw-Reddit-Data/'+csv_file_path
+    csv_file_path = 'reddit_posts_'+timestamp+'.csv'
+    #raw data path
+    csv_file_path1 = '/home/rocio/Documents/Research/Raw-Reddit-Data/'+csv_file_path
 
-#go from df -> csv
-df.to_csv(csv_file_path1, index=False)
+    #go from df -> csv
+    df.to_csv(csv_file_path1, index=False)
 
-#go from csv -> df
-df = pd.read_csv(csv_file_path1, encoding='utf-8')
+    #go from csv -> df
+    df = pd.read_csv(csv_file_path1, encoding='utf-8')
 
-#filtered data path
-csv_file_path2 = '/home/rocio/Documents/Research/Reddit-Data/'+csv_file_path
+    #filtered data path
+    csv_file_path2 = '/home/rocio/Documents/Research/Reddit-Data/'+csv_file_path
 
-new_df = filterData(df)
+    new_df = filterData(df)
 
-new_df.to_csv(csv_file_path2, index=False)
-print("saved filter data to csv")
+    new_df.to_csv(csv_file_path2, index=False)
+    print("saved filter data to csv")
 
-timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 
-categorizeData(new_df, timestamp)
+    #todo: add this function outsie the if statement once todo below is fixed
+    categorizeData(new_df, timestamp)
+
+#option 1 --> biweekly data analysis
+#todo: integrate categorize data for this -- once ";;;" are added to all data
+else:
+    df = mergeData()
+    if (df.empty):
+        raise Exception("There must be at least 1 file to parse through")
+        sys.exit(0)
+    print(f"df components: {df}")
 
 
 # Setup logging
