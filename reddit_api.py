@@ -27,8 +27,9 @@ import os
 
 #todo: work on biweekly data 
 #   - add a function that merges multiple csv files
-#   - keep the counter and total --> uses this for the average results --> goes to data visualization
 #   - place the responses in separate folders --> so no files will be overwriten
+#   - change the keywords
+#   - do a re.search for higher efficiency
 
 
 # #this will avoid the csv error -- if this doesnt fix the issue idk what will
@@ -40,7 +41,7 @@ def mergeData():
     folder_name = '/home/rocio/Documents/Research/Reddit-Data'
     all_files = [os.path.join(folder_name, f) for f in os.listdir(folder_name) if f.endswith('.csv')]
     #gets the date 14 days ago
-    timeframe = datetime.now() - timedelta(days=14)
+    timeframe = datetime.now() - timedelta(days=14) #1-15 15-30
     timeframe= timeframe.strftime('%Y-%m-%d')
     timeframe = datetime.strptime(timeframe, '%Y-%m-%d')
 
@@ -223,193 +224,169 @@ def categorizeData(df, timestamp):
     #index 3: ethical / legal
     #index 4: industry
     categorization_keywords = [
-
-    ["Poverty", "Inequality", "Discrimination", "Social justice", "Human rights", 
-    "Homelessness", "Unemployment", "Education inequality", "Healthcare access", "Mental health stigma",
-    "Civil rights movement", "Feminism", "LGBTQ+ rights", "Environmental activism", "Black Lives Matter", 
-    "#MeToo movement", "Indigenous rights", "Disability rights",
-    "Population trends", "Urbanization", "Rural communities", "Aging population", "Youth demographics", 
-    "Migration patterns", "Refugee crisis", "Immigration policy",
-    "Multiculturalism", "Cultural assimilation", "Cultural preservation", "Cultural heritage", 
-    "Cultural identity", "Ethnic communities", "Intercultural communication",
-    "Family structure", "Marriage trends", "Gender roles", "Parenting styles", "Education system", 
-    "Healthcare system", "Criminal justice system", "Political institutions",
-    "Community engagement", "Neighborhood revitalization", "Community organizing", "Grassroots movements", 
-    "Social cohesion", "Community resilience",
-    "Social networks", "Social support", "Interpersonal relationships", "Friendship", 
-    "Community bonds", "Social capital", "Social isolation",
-    "Social media impact", "Digital divide", "Online communities", "Technology addiction", 
-    "Cyberbullying", "Privacy concerns", "Digital literacy",
-    "Global interconnectedness", "Cultural exchange", "Global economy", "International relations", 
-    "Transnational corporations", "Global governance", "Global citizenship",
-    "Social progress", "Social reform", "Social innovation", "Social entrepreneurship", 
-    "Sustainable development goals", "Advocacy", "Policy change"],
+    ["Poverty", "Inequality", "Discrimination", "Social", "Justice" "Human", "Rights" 
+    "Homelessness", "Unemployment", "Inequality", "Healthcare", "Access", "Mental", "health", "stigma"
+    "Civil", "movement" "Feminism", "LGBTQ+", "Activism", "Environmental", "Environment", "society" "Lives", "Matter" 
+    "#MeToo", "Indigenous", "Disability", "handicap", "trends", "communities"
+    "Population", "Urbanization", "Rural", "Aging", "Youth", "demographics"
+    "Migration", "patterns", "Refugee", "crisis", "Immigration", "policy",
+    "Multiculturalism", "Cultural", "Assimilation" "preservation", "heritage", 
+    "identity", "Ethnic", "Intercultural", "communication", "Family", "structure", "Marriage", "Gender",  "roles", "Parenting", "styles", "system", 
+    "Political", "institutions", "Community", "engagement", "Neighborhood", "revitalization", "organizing", "organize", 
+    "cohesion", "resilience", "networks", "support", "Interpersonal", "relationships", "Friendship", 
+    "bonds", "capital", "isolation", "media", "impact", "Digital", "divide", "Online", "Technology", "addiction", 
+    "Cyberbullying", "Privacy", "concerns", "literacy", "global", "interconnectedness", "exchange", "economy", "International", "relations", 
+    "Transnational", "corporations", "governance", "citizenship",
+    "progress", "reform", "innovation", "entrepreneurship", 
+    "Sustainable", "development", "goals", "Advocacy", "change"],
 
     ["Education", "Schools", "Teachers", "Students", "Classrooms", "Curriculum", "Learning", 
-    "Educational technology", "Online learning", "Distance education", "E-learning", "Blended learning", 
-    "MOOCs", "Virtual classrooms", "Remote learning", "Digital learning", "Pedagogy", "Andragogy", 
-    "Teaching methods", "Instructional design", "Educational psychology", "Assessment", "Testing", 
-    "Grading", "Standardized tests", "Alternative assessments", "Learning outcomes", "Educational standards", 
-    "Curriculum development", "Education policy", "Education reform", "Educational equity", "Access to education", 
-    "Quality education", "Inclusive education", "Special education", "Gifted education", "Early childhood education", 
-    "Primary education", "Secondary education", "High school", "K-12 education", "Higher education", 
-    "College", "University", "Community college", "Vocational education", "Technical education", 
-    "STEM education", "STEAM education", "21st-century skills", "Critical thinking", "Problem-solving", 
-    "Creativity", "Collaboration", "Communication skills", "Digital literacy", "Media literacy", 
-    "Information literacy", "Financial literacy", "Civic education", "Global citizenship education", 
-    "Environmental education", "Health education", "Physical education", "Arts education", 
-    "Music education", "Language education", "Bilingual education", "Multilingual education", 
-    "Teacher training", "Professional development", "Educational leadership", "School management", 
-    "Parental involvement", "Home-school collaboration", "Education funding", "Public education", 
-    "Private education", "Charter schools", "Home schooling", "Education technology companies", 
+    "Educational", "technology", "Online", "Distance", "E-learning", "Blended", 
+    "MOOCs", "Virtual", "classrooms", "Remote", "Digital" "Pedagogy", "Andragogy", 
+    "Teaching", "methods", "Instructional", "design", "psychology", "Assessment", "Testing", 
+    "Grading", "standard" "Standardized", "standards", "test", "tests", "Alternative", "assessments", "outcomes", 
+    "Curriculum", "development", "policy", "reform", "equity", "Access", 
+    "Quality", "Special", "Gifted", "childhood", "Primary", "Secondary", "High school", "K-12", 
+    "College", "University", "Community college", "Vocational", "Technical", 
+    "STEM", "STEAM", "skills", "Critical", "Problem-solving", "Creativity", "Collaboration", "Communication", "literacy", "Media", 
+    "Information", "Financial", "Civic", "language", "Bilingual", "Multilingual", 
+    "Teacher", "training" "Professional", "leadership", "management", "school"
+    "Parental", "involvement", "Home-school", "Charter", "Home schooling", "smart"
     "Educational research", "Educational conferences", "Education journals", "Education blogs", 
-    "Education news", "Education advocacy", "Education grants" ],
-
-    ["Creativity", "Creative thinking", "Innovation", "Imagination", "Originality", "Problem-solving", 
-    "Critical thinking", "Divergent thinking", "Convergent thinking", "Lateral thinking", "Design thinking", 
-    "Artistic expression", "Creative process", "Inspiration", "Ideation", "Brainstorming", "Mind mapping", 
-    "Visualization", "Experimentation", "Risk-taking", "Playfulness", "Curiosity", "Open-mindedness", 
-    "Flexibility", "Adaptability", "Resilience", "Resourcefulness", "Inventiveness", "Ingenuity", 
-    "Entrepreneurship", "Intrapreneurship", "Creative industries", "Creative economy", "Creative class", 
-    "Cultural creativity", "Creativity in education", "Creative teaching", "Fostering creativity", 
-    "Creative environments", "Creative collaboration", "Interdisciplinary creativity", "Cross-disciplinary creativity", 
-    "Digital creativity", "Media creativity", "Film creativity", "Music creativity", "Literary creativity", 
-    "Visual arts creativity", "Performing arts creativity", "Design creativity", "Fashion creativity", 
-    "Architecture creativity", "Creative writing", "Poetry", "Storytelling", "Narrative creativity", 
-    "Creative problem-solving", "Creativity and innovation management", "Creative leadership", 
-    "Creative teams", "Creative culture", "Creativity research", "Creativity measurement", 
-    "Creativity assessment", "Assessing creative potential", "Assessing creative thinking", 
-    "Assessing creative skills", "Assessing creative performance", "Assessing creative products"],
+    "news", "scholarships" ],
+    [
+    "Creativity", "Creative", "thinking", "Innovation", "Imagination", 
+    "Originality", "Problem-solving", "art", "Critical", "thinking", 
+    "Divergent", "Convergent", "Lateral", "Design", "Artistic", 
+    "Creative", "Inspiration", "Ideation", "Brainstorming", 
+    "Visualization", "Experimentation", "Risk-taking", "Playfulness", 
+    "Curiosity", "Open-mindedness", "Flexibility", "Adaptability", 
+    "Resilience", "Resourcefulness", "Inventiveness", "Ingenuity", 
+    "Entrepreneurship", "Intrapreneurship", "collaboration", 
+    "Interdisciplinary", "Media", "Film", "Music", "Literary", 
+    "Visual arts", "Performing arts", "Fashion", "Architecture", 
+    "Poetry", "Storytelling", "Ingenuity", "Insight", "Intuition", 
+    "Introspection", "Expression", "Vision", "Aesthetic", 
+    "Experimentation", "Adaptation", "Intrepidness", "Discovery", 
+    "Revelation", "Renewal", "Fusion", "Evolution", "Harmony", 
+    "Fusion", "Fusion", "Perception", "Exploration", 
+    "Interpretation", "Revelation", "Embellishment", 
+    "Transformation", "Reconstruction", "Metamorphosis", "Revelation"
+    ],
 
     ["Ethics", "Legal", "Morality", "Law", "Regulation", "Compliance", "Governance", "Policy", 
-    "Ethical principles", "Legal principles", "Human rights", "Civil rights", "Privacy rights", 
-    "Data protection", "Confidentiality", "Intellectual property", "Copyright", "Patents", 
-    "Trademark", "Fair use", "Plagiarism", "Cybersecurity", "Data privacy", "Online safety", 
-    "Surveillance", "Ethical behavior", "Legal framework", "Legal system", "Court system", 
-    "Justice system", "Legal rights", "Legal obligations", "Legal responsibilities", 
-    "Legal liability", "Legal precedent", "Legal precedent", "Case law", "Statutory law", 
-    "Common law", "Constitutional law", "Criminal law", "Civil law", "Tort law", "Contract law", 
-    "International law", "Humanitarian law", "Environmental law", "Labor law", "Employment law", 
-    "Healthcare law", "Corporate law", "Business law", "Financial law", "Securities law", 
-    "Tax law", "Immigration law", "Family law", "Property law", "Real estate law", 
-    "Administrative law", "Regulatory law", "Ethical considerations", "Legal implications", 
-    "Legal compliance", "Ethical dilemmas", "Legal disputes", "Legal issues", "Ethical issues", 
-    "Legal analysis", "Ethical analysis", "Legal advice", "Legal counsel", "Ethical decision-making", 
-    "Legal interpretation", "Legal research", "Ethical research", "Legal ethics", "Professional ethics", 
-    "Corporate ethics", "Business ethics", "Medical ethics", "Research ethics", "Journalistic ethics", 
-    "Ethics codes", "Professional standards", "Legal standards", "Ethical standards", 
-    "Ethical guidelines", "Legal guidelines", "Ethical review", "Legal review", "Ethical oversight", 
-    "Legal compliance", "Ethical training", "Legal training", "Ethical education", "Legal education"],
+    "principles", "justice", "criminal", "rights", "Civil", "Privacy", 
+    "protection", "Confidentiality", "property", "Copyright", "Patents", 
+    "Trademark", "Fair use", "Plagiarism", "Cybersecurity", "Data", "safety", "system"
+    "Surveillance", "Ethical", "behavior", "Court", "obligations", "responsibilities", 
+    "liability", "precedent", "Case", "Statutory", "Constitutional", "Criminal", "Tort", "Contract", 
+    "International", "Humanitarian", "Environmental", "Labor", "Employment", 
+    "Corporate", "Securities", "Regulatory", "implications", "compliance", "dilemmas", "disputes", "issues", 
+    "Legal analysis", "counsel", "standards", "standard", "guidelines"],
     
-    ["Industry", "Manufacturing", "Production", "Factory", "Industrialization", "Industrial revolution", 
-    "Industrial sector", "Industrial development", "Industrial engineering", "Industrial design", 
-    "Industrial processes", "Industrial automation", "Industry 4.0", "Smart factories", 
-    "Advanced manufacturing", "Mass production", "Lean manufacturing", "Quality control", 
-    "Supply chain management", "Logistics", "Operations management", "Efficiency", 
-    "Productivity", "Cost reduction", "Resource optimization", "Sustainability", 
-    "Environmental impact", "Green manufacturing", "Circular economy", 
-    "Renewable energy", "Clean technology", "Energy efficiency", "Waste management", 
-    "Pollution control", "Emissions reduction", "Carbon footprint", "Industrial safety", 
-    "Occupational health", "Workplace safety", "Safety regulations", "Industrial accidents", 
-    "Risk management", "Emergency preparedness", "Disaster recovery", "Regulatory compliance", 
-    "Industrial policy", "Government regulations", "Trade policies", "Tariffs", "Import/export", 
-    "Globalization", "International trade", "Trade agreements", "Supply and demand", 
-    "Market trends", "Market analysis", "Competitive analysis", "Market competition", 
-    "Market segmentation", "Market share", "Market growth", "Market expansion", 
-    "Market opportunities", "Market challenges", "Market forecasting", "Business strategy", 
-    "Strategic planning", "Business development", "Market development", "Product development", 
-    "Innovation", "Research and development", "Technology adoption", "Digital transformation", 
-    "Data analytics", "Big data", "Artificial intelligence", "Machine learning", 
-    "Internet of Things (IoT)", "Robotics", "Automation", "Cybersecurity", 
-    "Information technology", "Cloud computing", "Blockchain", "Augmented reality", 
+    ["Industry", "Manufacturing", "Production", "Factory", "Industrialization", "revolution", "industrial", 
+    "sector", "development", "engineering", "design", 
+    "processes", "automation", "Logistics", "Operations", "Efficiency", "Productivity", 
+    "Cost reduction", "Resource optimization", "Sustainability", 
+    "impact", "economy", "Renewable", "technology", "management", 
+    "control", "Emissions", "Carbon footprint", "safety", "Industrial"
+    "compliance", "policy", "regulations", "trade", "Tariffs", "Import", "export", 
+    "Globalization", "International", "agreements", "Supply", "demand", 
+    "analysis", "Market competition", "market", "capital", "firm", "firms",
+    "share", "forecasting", "Innovation", "Research", "Digital", "transformation", 
+    "analytics", "data", "Artificial intelligence", "Machine learning", 
+    "Internet of Things", "IoT" "Robotics", "Automation", "Cybersecurity", 
+    "Information technology", "IT" "Cloud computing", "Blockchain", "Augmented reality", 
     "Virtual reality", "Smart technology", "Smart cities", "Smart infrastructure", 
     "Smart transportation", "Smart grid", "Smart homes", "Smart appliances", 
-    "Smart sensors", "Smart devices", "Industry associations", "Trade organizations", 
+    "Smart sensors", "Smart devices", "Industry associations", 
     "Industry conferences", "Industry publications", "Industry news"]
 
     ]
 
-    def contains_keyword(df, categorization_keywords):
-        filtered_data = pd.DataFrame()
+    category = {
+        0 : 'society',
+        1 : 'education',
+        2 : 'creativity',
+        3 : 'ethical',
+        4 : 'industry'
 
+    }
+
+    new_df = df
+
+
+    def contains_keyword(df, categorization_keywords):
+        #make an array of empty dataframes
+        filtered_data = [pd.DataFrame() for i in range(len(categorization_keywords))]
+        
+        #make a 2d array for empty filtered comments
+        filtered_comments = [[] for i in range(len(categorization_keywords))]
 
         # Iterate over each row in the DataFrame
         for index, row in df.iterrows(): 
             # Iterate over each column
             for column in df.columns: 
 
-                # Check if the column is 'comments'
-                if column == 'comments':
-                    filtered_comments = []
+                #iterate through every category here
+                for i in range (0, len(categorization_keywords)):
+                    pattern = re.compile('|'.join(categorization_keywords[i]), flags=re.IGNORECASE)
 
-                    #check if column section is a proper string
-                    if isinstance(row[column], str):
+                    # Check if the column is 'comments'
+                    if column == 'comments':
+                        filtered_comments[i] = []
 
-                        string = make_quotes_same(row[column])
-                        new_string = remove_illegal_decimal_literals(string)
-
-                        i = 0
-
-                        #";;;" acts as a delimiter to separate each comment
-                        for comment in (new_string.split(";;;")):
-                            print(f"comments {i}: {comment}")
-                            i +=1
-                            print()
-                            # Check if any keyword is present in the comment
-                            if any(keyword in comment for keyword in categorization_keywords):
-                                # Append the comment to the filtered comments list
-                                filtered_comments.append(comment)
-                        # Update the value in the DataFrame with the filtered comments list
-                        #creates a list of characters
-                        filtered_comments = str(filtered_comments)
-                        filtered_data.at[index, column] = filtered_comments
-                # For other columnsfiltered_comments = str(filtered_comments)
-                else:
-                    # Check if the value in the column is a string and contains any keyword
-                    if not pd.isna(row[column]) and isinstance(row[column], str) and any(keyword in row[column] for keyword in categorization_keywords):
-                        # Update the value in the DataFrame with the original string
-                        filtered_data.at[index, column] = row[column]
-
-        # Ensure the data types of the columns remain consistent
-        filtered_data = filtered_data.infer_objects()
-        st.write(filtered_data)
-        return filtered_data
+                        #if filteredcomments is not in list form
+                        if not isinstance(filtered_comments[i], list):
+                            filtered_comments[i] = eval(filtered_comments[i])
 
 
-    #todo: seems like there is an error with the categorization keywords -- there outputting the same results for all categories
-    for i in range (0, len(categorization_keywords)):
-        # Concatenate keywords into a regular expression pattern
-        pattern = '|'.join(categorization_keywords[i])
+                        #check if column section is a proper string
+                        if isinstance(row[column], str):
 
-        #check which category we are currently looking at
-        if (i == 0):
-            category = "society"
+                            string = make_quotes_same(row[column])
+                            new_string = remove_illegal_decimal_literals(string)
 
-        elif (i == 1):
-            category = "education"
+                            k = 0
 
-        elif (i == 2):
-            category = "creativity"
+                            #";;;" acts as a delimiter to separate each comment
+                            for comment in (new_string.split(";;;")):
+                                print(f"comments {k}: {comment}")
+                                k +=1
+                                print()
+                                print(f"category: {category}")
+                                # Check if any keyword is present in the comment
+                                # if any(keyword in comment for keyword in categorization_keywords):
+                                if (bool(pattern.search(string)) == True):
+                                    # Append the comment to the filtered comments list
+                                    filtered_comments[i].append(comment)
+                            # Update the value in the DataFrame with the filtered comments list
+                            #creates a list of characters
+                            filtered_comments[i] = str(filtered_comments[i])
+                            filtered_data[i].at[index, column] = filtered_comments[i]
+                    # For other columnsfiltered_comments = str(filtered_comments)
+                    else:
+                        # Check if the value in the column is a string and contains any keyword
+                        if not pd.isna(row[column]) and isinstance(row[column], str) and (bool(pattern.search(row[column])) == True):
+                            # Update the value in the DataFrame with the original string
+                            filtered_data[i].at[index, column] = row[column]
         
-        elif (i == 3):
-            category = "ethical"
 
-        else:
-            category = "industry"
-
-        filtered_data = contains_keyword(df, pattern)
-        sliceData(filtered_data, 50000, timestamp, credentials[5], category)
+        #iterate through all the dataframes made with the different categories and get sentiment results
+        for i in range(0, len(categorization_keywords)):
+            filtered_data[i] = filtered_data[i].infer_objects()
+            sliceData(filtered_data[i], 50000, timestamp, credentials[5], category[i])
                 
-    
-    
 
-
+    contains_keyword(new_df, categorization_keywords)
 
 
 #function that will send information to IBM API -- parses max amount of characters each time
 def sliceData(df, chunk_size, timestamp, credential, category):
+    st.write(category)
+    st.write(df)
 
-    selected_columns = ["title", "description", "comments"]
+    selected_columns = df.columns
     chunks_list = []  # List to accumulate chunks
     
     for col in selected_columns:
@@ -444,7 +421,7 @@ def sliceData(df, chunk_size, timestamp, credential, category):
                 # Update the DataFrame
                 chunk_size = sum(len(chunk) for chunk in non_empty_chunk)
                 df[col] = df[col].str.slice(chunk_size)
-          
+
     counter = 0
     sadness_total = 0
     joy_total = 0
@@ -638,11 +615,9 @@ if (option_result == "0"):
 
     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 
-    #todo: add this function outsie the if statement once todo below is fixed
     categorizeData(new_df, timestamp)
 
 #option 1 --> biweekly data analysis
-#todo: integrate categorize data for this -- once ";;;" are added to all data
 else:
     df = mergeData()
     if (df.empty):
