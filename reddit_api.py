@@ -24,19 +24,15 @@ import altair as alt
 import regex
 import ast
 import os
+import shutil
 
-#todo: work on biweekly data 
-#   - add a function that merges multiple csv files
-#   - place the responses in separate folders --> so no files will be overwriten
-#   - change the keywords
-#   - do a re.search for higher efficiency
 
 
 # #this will avoid the csv error -- if this doesnt fix the issue idk what will
 csv.field_size_limit(131072)
 
-#gets the last 2 weeks worth of data
-def mergeData():
+#split the data for every 2 weeks
+def mergeRecentBiweekly():
     #extract the files in a certain directory
     folder_name = '/home/rocio/Documents/Research/Reddit-Data'
     all_files = [os.path.join(folder_name, f) for f in os.listdir(folder_name) if f.endswith('.csv')]
@@ -51,6 +47,7 @@ def mergeData():
     for file in all_files:
         file = str(file)
         data = file.replace("/home/rocio/Documents/Research/Reddit-Data/", "").replace(".csv", "").replace("reddit_posts_", "")
+        print(f"data: {data}")
         match = re.search(r"\d+-(\d+)-(\d+)", data)
         if match:
             fileTime = match.group(0)
@@ -74,12 +71,124 @@ def mergeData():
         # Save the concatenated DataFrame to a new CSV file
         big_csv_filename = 'combined_reddit_data.csv'
         bi_weekly_directory = '/home/rocio/Documents/Research/Biweekly-Reddit-Data'
-        big_dataframe.to_csv(os.path.join(folder_name, big_csv_filename), index=False)
+        big_dataframe.to_csv(os.path.join(bi_weekly_directory, big_csv_filename), index=False)
         print(f"All data has been combined and written to {big_csv_filename}")
         return big_dataframe
     else:
         print("nothing in dataframe")
         return None
+    
+
+#todo: review this code and try to run and fix bugs
+def filterDataBiweekly():
+    #extract the files in a certain directory
+    folder_name = '/home/rocio/Documents/Research/Reddit-Data'
+    all_files = [os.path.join(folder_name, f) for f in os.listdir(folder_name) if f.endswith('.csv')]
+
+    years_to_filter = ["2022", "2023", "2024"] #change this is more data grows (make this dynamic?)
+
+    biweekly_data = [] #this will get cleared after every filtering iteration
+
+    directory = '/home/rocio/Documents/Research/Biweekly-Reddit-Data' 
+
+    yearly_data = [[] for i in range (len(years_to_filter))]
+
+    #goes through yearly data 
+    for file in all_files:
+        file = str(file)
+        #data = file.replace("/home/rocio/Documents/Research/Reddit-Data/", "").replace(".csv", "").replace("reddit_posts_", "")
+        # match = re.search(r"\d+-(\d+)-(\d+)", data)
+        #iterate through list 
+        for i in range (len(years_to_filter)):
+            if years_to_filter[i] in file:
+                yearly_data[i].append(file)
+        
+    for i in range(len(yearly_data)):
+        #makes an array to sort the monthly data
+        monthly_data = [[] for i in range(12)]
+        for j in range(len(yearly_data[i])):
+            
+            data = yearly_data[i][j].replace("/home/rocio/Documents/Research/Reddit-Data/", "").replace(".csv", "").replace("reddit_posts_", "")
+            
+            print(f"yearly data: {yearly_data[i][j]}")
+            #parses the data to get the month
+            #data_split[0] = year
+            #data_split[1] = month
+            #data_split[2] = day
+            #data_split[3] = time....
+            #we can also try to split with a specific parsing ways
+            data_split = re.split(r'[-_ ]', data)
+            year = data_split[0]
+            month = data_split[1]
+            if month[0] == "0":
+                month = month[1:]
+            month = int(month)
+
+            day = data_split[2]
+            if day[0] == "0":
+                day = day[1:]
+            day = int(day)
+            print(f"year: {year}")
+            print(f"month: {month}")
+            print(f"day: {day}")
+
+            #goes through each dataset in the year can checks for yearly data
+            for k in range(12):
+                
+                if (month == k+1):
+                    #check for day --> if it within 1-15 or 16-31 
+                    if (day <= 15):
+                        #check if there is a folder already made for this collection
+                        folder_name = data_split[0] + "_" + data_split[1] + "_" + "1-15"+"/"
+                        folder_path = os.path.join(directory, folder_name)
+                        if not (os.path.exists(folder_path) and os.path.isdir(folder_path)):
+                            #we need to create the directory here
+                            os.makedirs(folder_path)
+
+                        #add the new file to that directory
+                        shutil.copy(yearly_data[i][j], folder_path)
+
+                    else: #days between 16-30
+                        folder_name = data_split[0] + "_" + data_split[1] + "_" + "16-31"+'/'
+                        folder_path = os.path.join(directory, folder_name)
+                        print(f"folder_path: {folder_path}")
+                        if not (os.path.exists(folder_path) and os.path.isdir(folder_path)):
+                            #we need to create the directory here
+                            os.makedirs(folder_path)
+
+                        #add the new file to that directory
+                        shutil.copy(yearly_data[i][j], folder_path)
+
+    mergeDataBiweekly()
+
+def mergeDataBiweekly():
+    folder_name = '/home/rocio/Documents/Research/Biweekly-Reddit-Data'
+    
+    #try to get all the csv files in a directory
+    # go through all the folders in that directory
+    for root, folders, files in os.walk(folder_name):
+        #empty list for biweekly data
+        dataframes_list = []
+
+
+        for folder in folders:
+            folder_path = folder_name + '/' + folder
+            #get all the files in that specified directory
+            all_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.csv')]
+
+            #go through files in that directory
+            for file in all_files:
+                #merge all the data into 1 csv file
+                df = pd.read_csv(file)
+                dataframes_list.append(df)
+            
+            if (dataframes_list): #if dataframes_list is not null
+                big_dataframe = pd.concat(dataframes_list, ignore_index=True)
+                # Save the concatenated DataFrame to a new CSV file
+                big_csv_filename = 'combined_reddit_data.csv'
+                csv_file_path = folder_path+ '/' +big_csv_filename
+
+                big_dataframe.to_csv(csv_file_path, index=False)
 
 # Function to remove escape characters
 def remove_escape_chars(text):
@@ -356,7 +465,6 @@ def categorizeData(df, timestamp):
                                 print()
                                 print(f"category: {category}")
                                 # Check if any keyword is present in the comment
-                                # if any(keyword in comment for keyword in categorization_keywords):
                                 if (bool(pattern.search(string)) == True):
                                     # Append the comment to the filtered comments list
                                     filtered_comments[i].append(comment)
@@ -619,11 +727,11 @@ if (option_result == "0"):
 
 #option 1 --> biweekly data analysis
 else:
-    df = mergeData()
-    if (df.empty):
-        raise Exception("There must be at least 1 file to parse through")
-        sys.exit(0)
-    print(f"df components: {df}")
+    filterDataBiweekly()
+    # if (df.empty):
+    #     raise Exception("There must be at least 1 file to parse through")
+    #     sys.exit(0)
+    # print(f"df components: {df}")
 
 
 # Setup logging
