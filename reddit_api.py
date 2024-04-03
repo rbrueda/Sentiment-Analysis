@@ -333,36 +333,31 @@ def categorizeData(df, timestamp):
     #index 3: ethical / legal
     #index 4: industry
     categorization_keywords = [
-    ["Poverty", "Inequality", "Discrimination", "Social", "Justice" "Human", "Rights" 
-    "Homelessness", "Unemployment", "Inequality", "Healthcare", "Access", "Mental", "health", "stigma"
-    "Civil", "movement" "Feminism", "LGBTQ+", "Activism", "Environmental", "Environment", "society" "Lives", "Matter" 
-    "#MeToo", "Indigenous", "Disability", "handicap", "trends", "communities"
-    "Population", "Urbanization", "Rural", "Aging", "Youth", "demographics"
-    "Migration", "patterns", "Refugee", "crisis", "Immigration", "policy",
-    "Multiculturalism", "Cultural", "Assimilation" "preservation", "heritage", 
+    ["Poverty", "Inequality", "Discrimination", "Social", "Justice", "Human rights" 
+    "Homeless", "Unemployment", "Inequality", "Healthcare", "Accessibility", "Mental health", "stigma",
+    "Civil", "movement", "Feminism", "LGBTQ+", "Activism", "Environmental", "Environment", "society", "Lives", "Matter" 
+    "#MeToo", "Indigenous", "Disability", "handicap", "communities",
+    "Population", "Urbanization", "Rural", "Aging", "Youth", "demographics",
+    "Migration", "Refugee", "crisis", "Immigration", "policy",
+    "Multiculturalism", "Cultural", "Assimilation", "preservation", "heritage", 
     "identity", "Ethnic", "Intercultural", "communication", "Family", "structure", "Marriage", "Gender",  "roles", "Parenting", "styles", "system", 
-    "Political", "institutions", "Community", "engagement", "Neighborhood", "revitalization", "organizing", "organize", 
+    "Political", "Community", "engagement", "Neighborhood", "revitalization", "organizing", "organize", 
     "cohesion", "resilience", "networks", "support", "Interpersonal", "relationships", "Friendship", 
-    "bonds", "capital", "isolation", "media", "impact", "Digital", "divide", "Online", "Technology", "addiction", 
-    "Cyberbullying", "Privacy", "concerns", "literacy", "global", "interconnectedness", "exchange", "economy", "International", "relations", 
+    "bonds", "capital", "isolation", "media", "Technology", "addiction", 
+    "Cyberbullying", "Privacy", "concerns", "literacy", "globalism", "interconnectedness", "exchange", "economy", "International", "relations", 
     "Transnational", "corporations", "governance", "citizenship",
     "progress", "reform", "innovation", "entrepreneurship", 
-    "Sustainable", "development", "goals", "Advocacy", "change"],
+    "Sustainable", "development", "goals", "Advocacy", "revolutionize"],
 
-    ["Education", "Schools", "Teachers", "Students", "Classrooms", "Curriculum", "Learning", 
-    "Educational", "technology", "Online", "Distance", "E-learning", "Blended", 
-    "MOOCs", "Virtual", "classrooms", "Remote", "Digital" "Pedagogy", "Andragogy", 
-    "Teaching", "methods", "Instructional", "design", "psychology", "Assessment", "Testing", 
-    "Grading", "standard" "Standardized", "standards", "test", "tests", "Alternative", "assessments", "outcomes", 
-    "Curriculum", "development", "policy", "reform", "equity", "Access", 
-    "Quality", "Special", "Gifted", "childhood", "Primary", "Secondary", "High school", "K-12", 
-    "College", "University", "Community college", "Vocational", "Technical", 
-    "STEM", "STEAM", "skills", "Critical", "Problem-solving", "Creativity", "Collaboration", "Communication", "literacy", "Media", 
-    "Information", "Financial", "Civic", "language", "Bilingual", "Multilingual", 
-    "Teacher", "training" "Professional", "leadership", "management", "school"
-    "Parental", "involvement", "Home-school", "Charter", "Home schooling", "smart"
-    "Educational research", "Educational conferences", "Education journals", "Education blogs", 
-    "news", "scholarships" ],
+    ["Education", "Schools", "school", "Teachers", "Students", "Classrooms", "Curriculum", "Learning", "learn",
+    "Educational", "technology", "Online", "Distance learning", "E-learning", "Blended", "Academia", "academic"
+    "MOOCs", "SATs", "Virtual", "Pedagogy", "Andragogy", "course", 
+    "Teaching", "Instructional", "design", "psychology", "Assessment", "Testing", 
+    "Grading", "assessments", "K-12", 
+    "College", "University", "Vocational", "STEM", "STEAM", "Problem-solving", "literacy",
+    "Teacher", "training", "leadership", "Parental", "Charter", "schooling", "smart"
+    "research", "conference", "conferences", "seminars", "journals", "scholarship",
+    "scholarships", "grants", "grant" ],
     [
     "Creativity", "Creative", "thinking", "Innovation", "Imagination", 
     "Originality", "Problem-solving", "art", "Critical", "thinking", 
@@ -412,6 +407,8 @@ def categorizeData(df, timestamp):
     "Industry conferences", "Industry publications", "Industry news"]
 
     ]
+
+    #todo: add else category
 
     category = {
         0 : 'society',
