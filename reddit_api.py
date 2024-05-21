@@ -26,77 +26,90 @@ import ast
 import os
 import shutil
 
-
+import requests
 
 # #this will avoid the csv error -- if this doesnt fix the issue idk what will
 csv.field_size_limit(131072)
 
-#split the data for every 2 weeks
-def mergeRecentBiweekly():
-    #extract the files in a certain directory
-    folder_name = '/home/rocio/Documents/Research/Reddit-Data'
+
+from pmaw import PushshiftAPI
+# import reddit
+import datetime as dt
+
+def filterGroup(folder_name):
     all_files = [os.path.join(folder_name, f) for f in os.listdir(folder_name) if f.endswith('.csv')]
-    #gets the date 14 days ago
-    timeframe = datetime.now() - timedelta(days=14) #1-15 15-30
-    timeframe= timeframe.strftime('%Y-%m-%d')
-    timeframe = datetime.strptime(timeframe, '%Y-%m-%d')
 
-
-    biweekly_data = []
-    #goes through all the files and checks if any of them are from 14 days ago
+    #goes through yearly data 
     for file in all_files:
-        file = str(file)
-        data = file.replace("/home/rocio/Documents/Research/Reddit-Data/", "").replace(".csv", "").replace("reddit_posts_", "")
-        print(f"data: {data}")
-        match = re.search(r"\d+-(\d+)-(\d+)", data)
-        if match:
-            fileTime = match.group(0)
-            fileTime = datetime.strptime(fileTime, '%Y-%m-%d')
-            print(f"datetime: {datetime}")
-            if (fileTime >= timeframe):
-                #append the file to biweekly_data list
-                biweekly_data.append(file)
-
-    # Initialize an empty list to store DataFrames
-    dataframes_list = []
-
-    # Loop over the list of file paths & read each file into a DataFrame
-    for file in biweekly_data:
+        file_name = os.path.basename(file)
         df = pd.read_csv(file)
-        dataframes_list.append(df)
+        new_df = filterData(df)
 
-    # Concatenate all DataFrames into one
-    if (dataframes_list): #if dataframes_list is not null
-        big_dataframe = pd.concat(dataframes_list, ignore_index=True)
-        # Save the concatenated DataFrame to a new CSV file
-        big_csv_filename = 'combined_reddit_data.csv'
-        bi_weekly_directory = '/home/rocio/Documents/Research/Biweekly-Reddit-Data'
-        big_dataframe.to_csv(os.path.join(bi_weekly_directory, big_csv_filename), index=False)
-        print(f"All data has been combined and written to {big_csv_filename}")
-        return big_dataframe
-    else:
-        print("nothing in dataframe")
-        return None
+        csv_file_path = folder_name + '/filtered-data/'+ str(file_name)
+
+        #go from df -> csv
+        new_df.to_csv(csv_file_path, index=False)
+
+
+def timeSlotData(prawObj):
+    api = PushshiftAPI(prawObj, num_workers=4)
+
+    start_epoch = int(dt.datetime(2022, 11, 1).timestamp())
+
+    end_epoch = int(dt.datetime (2022, 11, 14).timestamp())
+
+    result = api.search_comments(q = 'gpt|ai|generative ai|chatgpt',
+
+    after = start_epoch,
+
+    before = end_epoch,)
+
+
+    # Now you can convert response_data to a string or manipulate it as needed
+    response_string = json.dumps(result)
+    print(response_string)
+    print(response_string)
+
+
+#split the data for every 2 weeks
+def getRecentBiweekly():
+    #extract the files in a certain directory
+    folder_name = '/home/rocio/Documents/research/Biweekly-Reddit-Data'
+    # maxYear = -1
+    # maxMonth = -1
+    # maxDay = -1
+    for root, folders, files in os.walk(folder_name):
+        for folder in folders:
+            # dates = [folder.split("_")]  # list of dates to check for max
+            # if (maxYear < int(dates[0])):
+            #     maxYear = int(dates[0])
+            
+            # if (maxMonth < int(dates[1])):
+            #     maxMonth = int(dates[1])
+            if (folder == "2024_04_1-15"):            
+                folder_path = folder_name + '/' + folder + '/combined_reddit_data.csv'
+                #find combined csv file
+                df = pd.read_csv(folder_path)
+                return df
     
 
-#todo: review this code and try to run and fix bugs
 def filterDataBiweekly():
     #extract the files in a certain directory
-    folder_name = '/home/rocio/Documents/Research/Reddit-Data'
+    folder_name = '/home/rocio/Documents/research/Reddit-Data'
     all_files = [os.path.join(folder_name, f) for f in os.listdir(folder_name) if f.endswith('.csv')]
 
     years_to_filter = ["2022", "2023", "2024"] #change this is more data grows (make this dynamic?)
 
     biweekly_data = [] #this will get cleared after every filtering iteration
 
-    directory = '/home/rocio/Documents/Research/Biweekly-Reddit-Data' 
+    directory = '/home/rocio/Documents/research/Biweekly-Reddit-Data' 
 
     yearly_data = [[] for i in range (len(years_to_filter))]
 
     #goes through yearly data 
     for file in all_files:
         file = str(file)
-        #data = file.replace("/home/rocio/Documents/Research/Reddit-Data/", "").replace(".csv", "").replace("reddit_posts_", "")
+        #data = file.replace("/home/gabrielr/Downloads/backup_rocio/research/Reddit-Data/", "").replace(".csv", "").replace("reddit_posts_", "")
         # match = re.search(r"\d+-(\d+)-(\d+)", data)
         #iterate through list 
         for i in range (len(years_to_filter)):
@@ -108,7 +121,7 @@ def filterDataBiweekly():
         monthly_data = [[] for i in range(12)]
         for j in range(len(yearly_data[i])):
             
-            data = yearly_data[i][j].replace("/home/rocio/Documents/Research/Reddit-Data/", "").replace(".csv", "").replace("reddit_posts_", "")
+            data = yearly_data[i][j].replace("/home/rocio/Documents/research/Reddit-Data/", "").replace(".csv", "").replace("reddit_posts_", "")
             
             print(f"yearly data: {yearly_data[i][j]}")
             #parses the data to get the month
@@ -159,19 +172,17 @@ def filterDataBiweekly():
                         #add the new file to that directory
                         shutil.copy(yearly_data[i][j], folder_path)
 
-    mergeDataBiweekly()
+    mergeData()
 
-def mergeDataBiweekly():
-    folder_name = '/home/rocio/Documents/Research/Biweekly-Reddit-Data'
+def mergeData():
+    folder_name = '/home/rocio/Documents/research/Data-To-Use'
     
     #try to get all the csv files in a directory
     # go through all the folders in that directory
     for root, folders, files in os.walk(folder_name):
-        #empty list for biweekly data
-        dataframes_list = []
-
-
         for folder in folders:
+            #empty list for biweekly data
+            dataframes_list = []
             folder_path = folder_name + '/' + folder
             #get all the files in that specified directory
             all_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.csv')]
@@ -185,7 +196,7 @@ def mergeDataBiweekly():
             if (dataframes_list): #if dataframes_list is not null
                 big_dataframe = pd.concat(dataframes_list, ignore_index=True)
                 # Save the concatenated DataFrame to a new CSV file
-                big_csv_filename = 'combined_reddit_data.csv'
+                big_csv_filename = 'combined_' + str(folder) + ".csv"
                 csv_file_path = folder_path+ '/' +big_csv_filename
 
                 big_dataframe.to_csv(csv_file_path, index=False)
@@ -265,7 +276,7 @@ def dataVisualization(counter, sadness_total, joy_total, fear_total, disgust_tot
         }
     }
 
-    json_path = '/home/rocio/Documents/Research/Sentiment-Data/Biweekly-Responses/' + "sentiment_" + timestamp + "_" + category + ".json"
+    json_path = '/home/rocio/Documents/research/Sentiment-Data/Biweekly-Responses/' + "sentiment_" + timestamp + "_" + category + ".json"
     #write sentiment results in json 
     with open(json_path, 'w') as f:
         json.dump(sentiment_results, f)
@@ -408,26 +419,25 @@ def categorizeData(df, timestamp):
 
     ]
 
-    #todo: add else category
 
     category = {
         0 : 'society',
         1 : 'education',
         2 : 'creativity',
         3 : 'ethical',
-        4 : 'industry'
+        4 : 'industry',
+        5 : 'other'
 
     }
 
     new_df = df
 
-
     def contains_keyword(df, categorization_keywords):
         #make an array of empty dataframes
-        filtered_data = [pd.DataFrame() for i in range(len(categorization_keywords))]
+        filtered_data = [pd.DataFrame() for i in range(len(categorization_keywords)+1)]
         
         #make a 2d array for empty filtered comments
-        filtered_comments = [[] for i in range(len(categorization_keywords))]
+        filtered_comments = [[] for i in range(len(categorization_keywords)+1)]
 
         # Iterate over each row in the DataFrame
         for index, row in df.iterrows(): 
@@ -435,50 +445,119 @@ def categorizeData(df, timestamp):
             for column in df.columns: 
 
                 #iterate through every category here
-                for i in range (0, len(categorization_keywords)):
-                    pattern = re.compile('|'.join(categorization_keywords[i]), flags=re.IGNORECASE)
+                # for i in range (0, len(categorization_keywords)):
+                #     pattern = re.compile('|'.join(categorization_keywords[i]), flags=re.IGNORECASE)
 
-                    # Check if the column is 'comments'
-                    if column == 'comments':
-                        filtered_comments[i] = []
+                # Check if the column is 'comments'
+                if column == 'comments':
+                    filtered_comments[0] = []
+                    filtered_comments[1] = []
+                    filtered_comments[2] = []
+                    filtered_comments[3] = []
+                    filtered_comments[4] = []
+                    filtered_comments[5] = []
 
-                        #if filteredcomments is not in list form
-                        if not isinstance(filtered_comments[i], list):
-                            filtered_comments[i] = eval(filtered_comments[i])
+
+                    # #if filteredcomments is not in list form
+                    # if not isinstance(filtered_comments[i], list):
+                    #     filtered_comments[i] = eval(filtered_comments[i])
 
 
-                        #check if column section is a proper string
-                        if isinstance(row[column], str):
+                    #check if column section is a proper string
+                    if isinstance(row[column], str):
 
-                            string = make_quotes_same(row[column])
-                            new_string = remove_illegal_decimal_literals(string)
+                        string = make_quotes_same(row[column])
+                        new_string = remove_illegal_decimal_literals(string)
 
-                            k = 0
+                        k = 0
 
-                            #";;;" acts as a delimiter to separate each comment
-                            for comment in (new_string.split(";;;")):
-                                print(f"comments {k}: {comment}")
-                                k +=1
-                                print()
-                                print(f"category: {category}")
-                                # Check if any keyword is present in the comment
-                                if (bool(pattern.search(string)) == True):
-                                    # Append the comment to the filtered comments list
-                                    filtered_comments[i].append(comment)
-                            # Update the value in the DataFrame with the filtered comments list
-                            #creates a list of characters
+                        #";;;" acts as a delimiter to separate each comment
+                        for comment in (new_string.split(";;;")):
+                            print(f"comments {k}: {comment}")
+                            k +=1
+                            print()
+                            print(f"category: {category}")
+                            # Check if any keyword is present in the comment
+
+                            flag = -1 #none of the values are found anywhere in the keywords
+
+                            #category society
+                            if (bool(re.compile('|'.join(categorization_keywords[0]), flags=re.IGNORECASE).search(string)) == True):
+                                # Append the comment to the filtered comments list
+                                filtered_comments[0].append(comment)
+                                flag = 0
+
+                            #category education
+                            if (bool(re.compile('|'.join(categorization_keywords[1]), flags=re.IGNORECASE).search(string)) == True):
+                                filtered_comments[1].append(comment)
+                                flag = 0
+
+                            #category creativity
+                            if (bool(re.compile('|'.join(categorization_keywords[2]), flags=re.IGNORECASE).search(string)) == True):
+                                filtered_comments[2].append(comment)
+                                flag = 0
+                            
+                            #category ethical
+                            if (bool(re.compile('|'.join(categorization_keywords[3]), flags=re.IGNORECASE).search(string)) == True):
+                                filtered_comments[3].append(comment)
+                                flag = 0
+                            
+                            #category industry
+                            if (bool(re.compile('|'.join(categorization_keywords[4]), flags=re.IGNORECASE).search(string)) == True):
+                                filtered_comments[4].append(comment)
+                                flag = 0
+
+                            #category other
+                            if flag == -1:
+                                print("here in comments")
+                                filtered_comments[5].append(comment)
+
+
+                        # Update the value in the DataFrame with the filtered comments list
+                        #creates a list of characters
+
+                        for i in range (0, len(categorization_keywords)+1):
                             filtered_comments[i] = str(filtered_comments[i])
                             filtered_data[i].at[index, column] = filtered_comments[i]
-                    # For other columnsfiltered_comments = str(filtered_comments)
-                    else:
-                        # Check if the value in the column is a string and contains any keyword
-                        if not pd.isna(row[column]) and isinstance(row[column], str) and (bool(pattern.search(row[column])) == True):
-                            # Update the value in the DataFrame with the original string
-                            filtered_data[i].at[index, column] = row[column]
+                # For other columnsfiltered_comments = str(filtered_comments)
+                else:
+                    flag1 = -1
+
+                    # Check if the value in the column is a string and contains any keyword
+
+                    if not pd.isna(row[column]) and isinstance(row[column], str) and (bool(re.compile('|'.join(categorization_keywords[0]), flags=re.IGNORECASE).search(row[column])) == True):
+                        # Update the value in the DataFrame with the original string
+                        filtered_data[0].at[index, column] = row[column]
+                        flag1 = 0
+
+                    #category education
+                    if not pd.isna(row[column]) and isinstance(row[column], str) and (bool(re.compile('|'.join(categorization_keywords[1]), flags=re.IGNORECASE).search(row[column])) == True):
+                        filtered_data[1].at[index, column] = row[column]
+                        flag1 = 0
+
+                    #category creativity
+                    if not pd.isna(row[column]) and isinstance(row[column], str) and (bool(re.compile('|'.join(categorization_keywords[2]), flags=re.IGNORECASE).search(row[column])) == True):
+                        filtered_data[2].at[index, column] = row[column]
+                        flag1 = 0
+                    
+                    #category ethical
+                    if not pd.isna(row[column]) and isinstance(row[column], str) and (bool(re.compile('|'.join(categorization_keywords[3]), flags=re.IGNORECASE).search(row[column])) == True):
+                        filtered_data[3].at[index, column] = row[column]
+                        flag1 = 0
+                    
+                    #category industry
+                    if not pd.isna(row[column]) and isinstance(row[column], str) and (bool(re.compile('|'.join(categorization_keywords[4]), flags=re.IGNORECASE).search(row[column])) == True):
+                        filtered_data[4].at[index, column] = row[column]
+                        flag1 = 0
+
+                    #category other
+                    if not pd.isna(row[column]) and isinstance(row[column], str) and flag1 == -1:
+                        print("here in description")
+                        filtered_data[5].at[index, column] = row[column]
         
 
         #iterate through all the dataframes made with the different categories and get sentiment results
-        for i in range(0, len(categorization_keywords)):
+        for i in range(0, len(categorization_keywords)+1):
             filtered_data[i] = filtered_data[i].infer_objects()
             sliceData(filtered_data[i], 50000, timestamp, credentials[5], category[i])
                 
@@ -564,8 +643,8 @@ def sliceData(df, chunk_size, timestamp, credential, category):
 
 
         json_extension = ".json"
-        #save it to file path with ALL IBM responses
-        json_file_path = f"/home/rocio/Documents/Research/Sentiment-Data/IBM-Responses/sentiment_{timestamp}_{counter}_{category}{json_extension}"
+        #change this json path!
+        json_file_path = f"/home/rocio/Documents/research/Data-To-Use/2023-09/sentiment_2023-09_{counter}_{category}{json_extension}"
 
         print(f"current path: {json_file_path}")
 
@@ -589,7 +668,7 @@ def sliceData(df, chunk_size, timestamp, credential, category):
         #starting counter for the amount of sentiment response  taken
         counter += 1
 
-    dataVisualization(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp, category)
+    # dataVisualization(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp, category)
 
 
 
@@ -631,7 +710,6 @@ reddit = praw.Reddit(
     username=credentials[3]
 )
 
-
 # Define the terms to search for and the subreddit
 search_terms = ['gpt', 'ai', 'generative ai', 'chatgpt']
 subreddit = 'all'  # Or specify a subreddit
@@ -651,7 +729,8 @@ def queryReddit():
     #place in a set for time complexity - will search in O(1)
     unique_submission_ids = set()
 
-    for submission in reddit.subreddit(subreddit).search(query_string, time_filter='day', limit=20):
+    #keeping limit currently at 40 submissions
+    for submission in reddit.subreddit(subreddit).search(query_string, time_filter='day', limit=40):
         try:
             submission.comments.replace_more(limit=20)
             
@@ -687,31 +766,30 @@ def queryReddit():
 
     return posts_data
 
-#ask the user for making new query to reddit, or getting biweekly code results
-
-option_result = input("Enter 0 for daily result from reddit query\nEnter 1 for biweekly code analysis\n")
+option_result = input("Enter 0 for daily request from reddit query\nEnter 1 for biweekly code analysis\nEnter 2 for filtering a group of csv files\nEnter 3 for merging a group of files\nEnter 4 to get sentiment data\nEnter 5 for visualizing biweekly data\n")
 print(option_result)
 
 #option 0 --> real time daily data from reddit
 if (option_result == "0"):
     print("here")
     posts_data = queryReddit()
+
     # Convert to DataFrame
     df = pd.DataFrame(posts_data)
 
 
     csv_file_path = 'reddit_posts_'+timestamp+'.csv'
-    #raw data path
-    csv_file_path1 = '/home/rocio/Documents/Research/Raw-Reddit-Data/'+csv_file_path
+    # #raw data path
+    csv_file_path1 = '/home/rocio/Documents/research/Raw-Reddit-Data/'+csv_file_path
 
-    #go from df -> csv
+    # #go from df -> csv
     df.to_csv(csv_file_path1, index=False)
 
     #go from csv -> df
     df = pd.read_csv(csv_file_path1, encoding='utf-8')
 
     #filtered data path
-    csv_file_path2 = '/home/rocio/Documents/Research/Reddit-Data/'+csv_file_path
+    csv_file_path2 = '/home/rocio/Documents/research/Reddit-Data/'+csv_file_path
 
     new_df = filterData(df)
 
@@ -723,17 +801,34 @@ if (option_result == "0"):
     categorizeData(new_df, timestamp)
 
 #option 1 --> biweekly data analysis
-else:
+elif (option_result == "1"):
     filterDataBiweekly()
-    # if (df.empty):
-    #     raise Exception("There must be at least 1 file to parse through")
-    #     sys.exit(0)
-    # print(f"df components: {df}")
+
+
+#option 2 --> filters a group of csv files
+elif (option_result == "2"):
+    directory = '/home/rocio/Documents/research/Data-To-Use/2023-02'
+    filterGroup(directory)
+
+#option 3 --> merge data into 1 dataframe
+elif (option_result == "3"):
+    mergeData()
+
+#option 4 --> get sentiment results for each folder (save in a certain directory)
+elif (option_result == "4"):
+    df = pd.read_csv('/home/rocio/Documents/research/Data-To-Use/2023-09/combined_2023-09.csv', encoding='utf-8')
+
+    categorizeData(df, timestamp)
+
+#option 5 --> merge biweekly data
+else:
+    biweeklyDf = getRecentBiweekly()
+    categorizeData(biweeklyDf, timestamp)
 
 
 # Setup logging
 date=datetime.utcnow()
-name = f"/home/rocio/Documents/Research/Reddit-Data/reddit-data_{timestamp}.log"
+name = f"/home/rocio/Documents/research/Reddit-Data/reddit-data_{timestamp}.log"
 logging.basicConfig(filename=name, level=logging.INFO)
 
 def main():
