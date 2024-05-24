@@ -71,7 +71,7 @@ def timeSlotData(prawObj):
     print(response_string)
 
 
-#split the data for every 2 weeks
+#split the data for every 2 weeksall_files = [os.path.join(folder_name, f) for f in os.listdir(folder_name) if f.endswith('.csv')]
 def getRecentBiweekly():
     #extract the files in a certain directory
     folder_name = '/home/rocio/Documents/research/Biweekly-Reddit-Data'
@@ -191,6 +191,7 @@ def mergeData():
             for file in all_files:
                 #merge all the data into 1 csv file
                 df = pd.read_csv(file)
+                print(df)
                 dataframes_list.append(df)
             
             if (dataframes_list): #if dataframes_list is not null
@@ -198,6 +199,8 @@ def mergeData():
                 # Save the concatenated DataFrame to a new CSV file
                 big_csv_filename = 'combined_' + str(folder) + ".csv"
                 csv_file_path = folder_path+ '/' +big_csv_filename
+
+                print(big_dataframe)
 
                 big_dataframe.to_csv(csv_file_path, index=False)
 
@@ -247,44 +250,52 @@ def filterData(df):
 
     return new_df
 
+def iterateThroughGraphs():
+    folder_name = '/home/rocio/Documents/research/Data-To-Use'
 
+    # Get all folders in the directory and sort them
+    all_folders = [f for f in os.listdir(folder_name) if os.path.isdir(os.path.join(folder_name, f))]
+    all_folders.sort()
+
+    # Iterate through the sorted list of folders
+    for folder in all_folders:
+        folder_path = os.path.join(folder_name, folder)
+        
+        # Get all the JSON files in the directory
+        all_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.json')]
+        all_files.sort()  # Sort files if necessary
+
+        # Go through files in that directory
+        for file in all_files:
+            # Merge all the data into 1 CSV file
+            with open(file, 'r') as f:
+                file_name = os.path.basename(file)
+
+                # Get the category name
+                start = file_name.rfind('_') + 1  # Find the last underscore and move one position right
+                end = file_name.rfind('.json')  # Find the start of '.json'
+                # Get the substring
+                category = file_name[start:end]
+
+                # Load the JSON data from the file into a Python dictionary
+                data = json.load(f)
+                dataVisualization(
+                    data['emotion']['document']['emotion']['sadness'],
+                    data['emotion']['document']['emotion']['joy'],
+                    data['emotion']['document']['emotion']['fear'],
+                    data['emotion']['document']['emotion']['disgust'],
+                    data['emotion']['document']['emotion']['anger'],
+                    str(folder), category)
 
 
 # make biweekly average function -- bar graph 
-def dataVisualization(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp, category):
-    #save it in a folder -- biweeklt sentiment results
-
-    #will create our averages
-    sadness_average = sadness_total/counter
-    joy_average = joy_total/counter
-    fear_average = fear_total/counter
-    disgust_average = disgust_total/counter
-    anger_average = anger_total/counter
-
-    #total sentiment results in json format
-    sentiment_results = {
-        "emotion": {
-            "document": {
-                "emotion": {
-                    "sadness": sadness_average,
-                    "joy": joy_average,
-                    "fear": fear_average,
-                    "disgust": disgust_average,
-                    "anger": anger_average
-                }
-            }
-        }
-    }
-
-    json_path = '/home/rocio/Documents/research/Sentiment-Data/Biweekly-Responses/' + "sentiment_" + timestamp + "_" + category + ".json"
-    #write sentiment results in json 
-    with open(json_path, 'w') as f:
-        json.dump(sentiment_results, f)
+def dataVisualization(sadness, joy, fear, disgust, anger, date, category):
+    title = date + ": " + category
 
     #create a dataframe with the results
     data = pd.DataFrame({
     'Category':['Sadness', 'Joy', 'Fear', 'Disguist', 'Anger'],
-    'Value':[sadness_average, joy_average, fear_average, disgust_average, anger_average]
+    'Value':[sadness, joy, fear, disgust, anger]
 
     })
 
@@ -300,14 +311,21 @@ def dataVisualization(counter, sadness_total, joy_total, fear_total, disgust_tot
         tooltip=['Category', 'Value'],
         color=alt.Color('Category:N', scale=color_scale)  # Specify the color scale
     ).properties(
-        #todo: create the title to a better formatted date, for ex. Dec 2023 -- we would need to parse timestamp 12-03..
-        title=timestamp,
+        title=title,
         width=700,
         height=400
     )
 
+    text = chart.mark_text(
+    align='center',
+    baseline='bottom',
+    dy=-5  # Adjust the vertical offset of the labels
+).encode(
+    text='Value'  # Display the value of each bar
+)
+
     # Display the chart using st.altair_chart
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart + text, use_container_width=True)
 
 
 def remove_special_characters(input_string):
@@ -439,6 +457,8 @@ def categorizeData(df, timestamp):
         #make a 2d array for empty filtered comments
         filtered_comments = [[] for i in range(len(categorization_keywords)+1)]
 
+        k = 0
+
         # Iterate over each row in the DataFrame
         for index, row in df.iterrows(): 
             # Iterate over each column
@@ -469,12 +489,11 @@ def categorizeData(df, timestamp):
                         string = make_quotes_same(row[column])
                         new_string = remove_illegal_decimal_literals(string)
 
-                        k = 0
 
                         #";;;" acts as a delimiter to separate each comment
                         for comment in (new_string.split(";;;")):
                             print(f"comments {k}: {comment}")
-                            k +=1
+                            k +=1 #keeps track the number of comments per post
                             print()
                             print(f"category: {category}")
                             # Check if any keyword is present in the comment
@@ -482,28 +501,28 @@ def categorizeData(df, timestamp):
                             flag = -1 #none of the values are found anywhere in the keywords
 
                             #category society
-                            if (bool(re.compile('|'.join(categorization_keywords[0]), flags=re.IGNORECASE).search(string)) == True):
+                            if (bool(re.compile('|'.join(categorization_keywords[0]), flags=re.IGNORECASE).search(comment)) == True):
                                 # Append the comment to the filtered comments list
                                 filtered_comments[0].append(comment)
                                 flag = 0
 
                             #category education
-                            if (bool(re.compile('|'.join(categorization_keywords[1]), flags=re.IGNORECASE).search(string)) == True):
+                            if (bool(re.compile('|'.join(categorization_keywords[1]), flags=re.IGNORECASE).search(comment)) == True):
                                 filtered_comments[1].append(comment)
                                 flag = 0
 
                             #category creativity
-                            if (bool(re.compile('|'.join(categorization_keywords[2]), flags=re.IGNORECASE).search(string)) == True):
+                            if (bool(re.compile('|'.join(categorization_keywords[2]), flags=re.IGNORECASE).search(comment)) == True):
                                 filtered_comments[2].append(comment)
                                 flag = 0
                             
                             #category ethical
-                            if (bool(re.compile('|'.join(categorization_keywords[3]), flags=re.IGNORECASE).search(string)) == True):
+                            if (bool(re.compile('|'.join(categorization_keywords[3]), flags=re.IGNORECASE).search(comment)) == True):
                                 filtered_comments[3].append(comment)
                                 flag = 0
                             
                             #category industry
-                            if (bool(re.compile('|'.join(categorization_keywords[4]), flags=re.IGNORECASE).search(string)) == True):
+                            if (bool(re.compile('|'.join(categorization_keywords[4]), flags=re.IGNORECASE).search(comment)) == True):
                                 filtered_comments[4].append(comment)
                                 flag = 0
 
@@ -555,10 +574,17 @@ def categorizeData(df, timestamp):
                         print("here in description")
                         filtered_data[5].at[index, column] = row[column]
         
-
+        print(f"total # of comments: {k}")
         #iterate through all the dataframes made with the different categories and get sentiment results
         for i in range(0, len(categorization_keywords)+1):
             filtered_data[i] = filtered_data[i].infer_objects()
+            st.write(filtered_data[0])
+            st.write(filtered_data[1])
+            st.write(filtered_data[2])
+            st.write(filtered_data[3])
+            st.write(filtered_data[4])
+            st.write(filtered_data[5])
+
             sliceData(filtered_data[i], 50000, timestamp, credentials[5], category[i])
                 
 
@@ -644,7 +670,7 @@ def sliceData(df, chunk_size, timestamp, credential, category):
 
         json_extension = ".json"
         #change this json path!
-        json_file_path = f"/home/rocio/Documents/research/Data-To-Use/2023-09/sentiment_2023-09_{counter}_{category}{json_extension}"
+        json_file_path = f"/home/rocio/Documents/research/Data-To-Use/2023-01/sentiment_2023-01_{counter}_{category}{json_extension}"
 
         print(f"current path: {json_file_path}")
 
@@ -668,6 +694,32 @@ def sliceData(df, chunk_size, timestamp, credential, category):
         #starting counter for the amount of sentiment response  taken
         counter += 1
 
+    #will create our averages
+    sadness_average = sadness_total/counter
+    joy_average = joy_total/counter
+    fear_average = fear_total/counter
+    disgust_average = disgust_total/counter
+    anger_average = anger_total/counter
+
+    #total sentiment results in json format
+    sentiment_results = {
+        "emotion": {
+            "document": {
+                "emotion": {
+                    "sadness": sadness_average,
+                    "joy": joy_average,
+                    "fear": fear_average,
+                    "disgust": disgust_average,
+                    "anger": anger_average
+                }
+            }
+        }
+    }
+
+    json_path = "/home/rocio/Documents/research/Data-To-Use/2023-01/"+ "sentiment_2023-01" + "_" + category + ".json"
+    #write sentiment results in json 
+    with open(json_path, 'w') as f:
+        json.dump(sentiment_results, f)
     # dataVisualization(counter, sadness_total, joy_total, fear_total, disgust_total, anger_total, timestamp, category)
 
 
@@ -766,7 +818,7 @@ def queryReddit():
 
     return posts_data
 
-option_result = input("Enter 0 for daily request from reddit query\nEnter 1 for biweekly code analysis\nEnter 2 for filtering a group of csv files\nEnter 3 for merging a group of files\nEnter 4 to get sentiment data\nEnter 5 for visualizing biweekly data\n")
+option_result = input("Enter 0 for daily request from reddit query\nEnter 1 for biweekly code analysis\nEnter 2 for filtering a group of csv files\nEnter 3 for merging a group of files\nEnter 4 to get sentiment data\nEnter 5 for merging biweekly data\nEnter 6 for visualizing monthly data\n")
 print(option_result)
 
 #option 0 --> real time daily data from reddit
@@ -807,7 +859,7 @@ elif (option_result == "1"):
 
 #option 2 --> filters a group of csv files
 elif (option_result == "2"):
-    directory = '/home/rocio/Documents/research/Data-To-Use/2023-02'
+    directory = '/home/rocio/Documents/research/Data-To-Use/2024-03'
     filterGroup(directory)
 
 #option 3 --> merge data into 1 dataframe
@@ -816,14 +868,19 @@ elif (option_result == "3"):
 
 #option 4 --> get sentiment results for each folder (save in a certain directory)
 elif (option_result == "4"):
-    df = pd.read_csv('/home/rocio/Documents/research/Data-To-Use/2023-09/combined_2023-09.csv', encoding='utf-8')
+    df = pd.read_csv('/home/rocio/Documents/research/Data-To-Use/2024-05/combined_2024-05.csv', encoding='utf-8')
 
     categorizeData(df, timestamp)
 
 #option 5 --> merge biweekly data
-else:
+elif (option_result == "5"):
     biweeklyDf = getRecentBiweekly()
     categorizeData(biweeklyDf, timestamp)
+
+#visualize each graph result -> run via Streamlit
+else:
+    iterateThroughGraphs()
+
 
 
 # Setup logging
