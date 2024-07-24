@@ -33,7 +33,7 @@ python3 reddit_api.py
 ![data-visualization-5](https://github.com/user-attachments/assets/0f2c8d78-0c9f-42f6-9bbe-89fe3eb8cc45)
 
 ## Society
-![data-visualization-6](https://github.com/user-attachments/assets/eddeac73-730e-4a38-8515-37ba2d31f442)
+![data-visualization-6](https://github.com/user-attachments/assets/769f557a-11ce-491f-a913-2fb5c362b916)
 
 
 NOTE: If code is distributed to another source, the MIT licence must be attached. 
