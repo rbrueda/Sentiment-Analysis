@@ -36,10 +36,10 @@ features = vectorizer.fit_transform(comments)
 #check the number of samples
 k = features.shape[0]
 
+#todo: do something else here
 
-
-#assume k = 20 -- you can find this value using elbow method (look at other video for this)
-
+#topic modeling and embedding
+#convert it into a vector instead of shape
 
 model = KMeans(n_clusters=k, init='k-means++', max_iter=100, n_init=1 )
 model.fit(features) #infromation that we transformed from text to something more meaningful
