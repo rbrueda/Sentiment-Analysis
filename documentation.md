@@ -86,7 +86,7 @@ features = Features(emotion=EmotionOptions())).get_result()
 - Worked on documentation for results achieved for each month
 - Worked on Power BI visualizating on graphs
 - Sample graph shown below:
-(todo: get later)
+![image](https://github.com/user-attachments/assets/cb0e1f47-8d4a-4eca-abc2-c6f079bc2d03)
 
 ## August 2024 (current)
 - working on machine-learning tasks
