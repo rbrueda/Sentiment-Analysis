@@ -58,7 +58,7 @@ if submission.id not in unique_submission_ids:
 ```
 - Started working on finding a way to parse through characters in sliceData() function without slicing between words 
 
-## Mar 2024 - May 2024
+## Mar 2024
 - Worked on finding a way to parse through characters in ```sliceData()``` function without slicing between words
 	- Used delimiter ";;;" to separate individual comments
  - sample code:
