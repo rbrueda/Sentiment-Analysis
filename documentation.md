@@ -56,4 +56,38 @@ if submission.id not in unique_submission_ids:
                 unique_submission_ids.add(submission.id)
 
 ```
-- currently working on finding a way to parse through characters in sliceData() function without slicing between words (in progress)
+- Started working on finding a way to parse through characters in sliceData() function without slicing between words 
+
+## Mar 2024 - May 2024
+- Worked on finding a way to parse through characters in ```sliceData()``` function without slicing between words
+	- Used delimiter ";;;" to separate individual comments
+ - sample code:
+```python
+for comment in (new_string.split(";;;")):
+	#........
+	#checks if string is found in certain category of keywords (using re.compile), it is added to its corresponding list
+```
+- Started working on categorizing data
+	- Categories used: society, education, creativity, ethical, industry, other
+- Got overall emotion results from IBM to work using the following syntax:
+```python
+features = Features(emotion=EmotionOptions())).get_result()
+```
+
+## April 2024 - May 2024
+- finalized categorizing data
+- worked on retrieving data from the following months: Jan 2023 - May 2024
+	- each dataset retrieved has at least **2** datapoints
+ - got visualization of data for each month using **Altair** for data visualization and Streamlit as the framework to deploy python script
+- Example bar graph retrieved in April 2023 (category: Creativity)
+![visualization (14)](https://github.com/user-attachments/assets/325bd454-6064-404b-8c7e-7784b06c7832)
+   
+## June 2024 - July 2024
+- Worked on documentation for results achieved for each month
+- Worked on Power BI visualizating on graphs
+- Sample graph shown below:
+(todo: get later)
+
+## August 2024 (current)
+- working on machine-learning tasks
+- vectorized Reddit comments, converted to a PCA, and then used k-means to partition data into **5** clusters
