@@ -35,5 +35,8 @@ python3 reddit_api.py
 ## Society
 ![data-visualization-6](https://github.com/user-attachments/assets/769f557a-11ce-491f-a913-2fb5c362b916)
 
+# Research Paper
+https://drive.google.com/file/d/1b2FVJwlxKMFWin0sYZ4KC1XyNAYR9_IW/view?usp=sharing
+
 
 NOTE: If code is distributed to another source, the MIT licence must be attached. 
